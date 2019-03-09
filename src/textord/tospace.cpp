@@ -26,7 +26,6 @@
  **********************************************************************/
 
 #include "drawtord.h"
-#include "ndminx.h"
 #include "statistc.h"
 #include "textord.h"
 #include "tovars.h"
@@ -35,6 +34,9 @@
 #ifdef HAVE_CONFIG_H
 #include "config_auto.h"
 #endif
+
+#include <algorithm>
+#include <memory>
 
 #define MAXSPACING      128      /*max expected spacing in pix */
 
@@ -52,17 +54,16 @@ void Textord::to_spacing(
   int16_t block_space_gap_width;
   //estimated width of non space gaps for whole block
   int16_t block_non_space_gap_width;
-  BOOL8 old_text_ord_proportional;//old fixed/prop result
-  GAPMAP *gapmap = nullptr;          //map of big vert gaps in blk
+  bool old_text_ord_proportional;//old fixed/prop result
 
   block_it.set_to_list (blocks);
   block_index = 1;
   for (block_it.mark_cycle_pt (); !block_it.cycled_list ();
   block_it.forward ()) {
     block = block_it.data ();
-    gapmap = new GAPMAP (block);
+    std::unique_ptr<GAPMAP> gapmap(new GAPMAP (block)); //map of big vert gaps in blk
     block_spacing_stats(block,
-                        gapmap,
+                        gapmap.get(),
                         old_text_ord_proportional,
                         block_space_gap_width,
                         block_non_space_gap_width);
@@ -87,7 +88,7 @@ void Textord::to_spacing(
           tprintf ("Block %d Row %d: Now Proportional\n",
             block_index, row_index);
         row_spacing_stats(row,
-                          gapmap,
+                          gapmap.get(),
                           block_index,
                           row_index,
                           block_space_gap_width,
@@ -106,7 +107,6 @@ void Textord::to_spacing(
 #endif
       row_index++;
     }
-    delete gapmap;
     block_index++;
   }
 }
@@ -117,12 +117,12 @@ void Textord::to_spacing(
  *************************************************************************/
 
 void Textord::block_spacing_stats(
-    TO_BLOCK *block,
-    GAPMAP *gapmap,
-    BOOL8 &old_text_ord_proportional,
-    int16_t &block_space_gap_width,     // resulting estimate
-    int16_t &block_non_space_gap_width  // resulting estimate
-                                  ) {
+        TO_BLOCK* block,
+        GAPMAP* gapmap,
+        bool& old_text_ord_proportional,
+        int16_t& block_space_gap_width,     // resulting estimate
+        int16_t& block_non_space_gap_width  // resulting estimate
+) {
   TO_ROW *row;                   // current row
   BLOBNBOX_IT blob_it;           // iterator
 
@@ -193,7 +193,7 @@ void Textord::block_spacing_stats(
     block_non_space_gap_width = minwidth;
     block_space_gap_width = -1;  //No est. space width
                                  //DEBUG
-    old_text_ord_proportional = TRUE;
+    old_text_ord_proportional = true;
   }
   else {
     /* For debug only ..... */
@@ -224,7 +224,7 @@ void Textord::block_spacing_stats(
         (row->pitch_decision == PITCH_DEF_PROP) ||
       (row->pitch_decision == PITCH_CORR_PROP))) {
         real_space_threshold =
-          MAX (tosp_init_guess_kn_mult * block_non_space_gap_width,
+                std::max (tosp_init_guess_kn_mult * block_non_space_gap_width,
           tosp_init_guess_xht_mult * row->xheight);
         blob_it.set_to_list (row->blob_list ());
         blob_it.mark_cycle_pt ();
@@ -278,8 +278,8 @@ void Textord::block_spacing_stats(
       block_space_gap_width = -1;//No est. space width
     else
       block_space_gap_width =
-        MAX ((int16_t) floor (space_gap_stats.median ()),
-        3 * block_non_space_gap_width);
+              std::max(static_cast<int16_t>(floor(space_gap_stats.median())),
+                       static_cast<int16_t>(3 * block_non_space_gap_width));
   }
 }
 
@@ -310,9 +310,9 @@ void Textord::row_spacing_stats(
   int16_t max = 0;
   int16_t index;
   int16_t large_gap_count = 0;
-  BOOL8 suspected_table;
+  bool suspected_table;
   int32_t max_max_nonspace;        //upper bound
-  BOOL8 good_block_space_estimate = block_space_gap_width > 0;
+  bool good_block_space_estimate = block_space_gap_width > 0;
   int32_t end_of_row;
   int32_t row_length = 0;
   float sane_space;
@@ -433,13 +433,13 @@ void Textord::row_spacing_stats(
                 row_idx, row->kern_size, row->space_threshold, row->space_size);
       row->space_threshold =
         (int32_t) (tosp_table_kn_sp_ratio * row->kern_size);
-      row->space_size = MAX (row->space_threshold + 1, row->xheight);
+      row->space_size = std::max(row->space_threshold + 1.0f, row->xheight);
     }
   }
   else if (tosp_sanity_method == 1) {
     sane_space = row->space_size;
     /* NEVER let space size get too close to kern size */
-    if ((row->space_size < tosp_min_sane_kn_sp * MAX (row->kern_size, 2.5))
+    if ((row->space_size < tosp_min_sane_kn_sp * std::max(row->kern_size, 2.5f))
       || ((row->space_size - row->kern_size) <
     (tosp_silly_kn_sp_gap * row->xheight))) {
       if (good_block_space_estimate &&
@@ -447,8 +447,8 @@ void Textord::row_spacing_stats(
         sane_space = block_space_gap_width;
       else
         sane_space =
-          MAX (tosp_min_sane_kn_sp * MAX (row->kern_size, 2.5),
-          row->xheight / 2);
+                std::max(static_cast<float>(tosp_min_sane_kn_sp) * std::max(row->kern_size, 2.5f),
+          row->xheight / 2.0f);
       if (tosp_debug_level > 5)
         tprintf("B:%d R:%d -- DON'T BELIEVE SPACE %3.2f %d %3.2f -> %3.2f.\n",
                 block_idx, row_idx, row->kern_size, row->space_threshold,
@@ -460,7 +460,7 @@ void Textord::row_spacing_stats(
     }
     /* NEVER let threshold get VERY far away from kern */
     sane_threshold = int32_t (floor (tosp_max_sane_kn_thresh *
-      MAX (row->kern_size, 2.5)));
+                                             std::max(row->kern_size, 2.5f)));
     if (row->space_threshold > sane_threshold) {
       if (tosp_debug_level > 5)
         tprintf("B:%d R:%d -- DON'T BELIEVE THRESH %3.2f %d %3.2f->%d.\n",
@@ -472,7 +472,7 @@ void Textord::row_spacing_stats(
     }
     /* Beware of tables - there may be NO spaces */
     if (suspected_table) {
-      sane_space = MAX (tosp_table_kn_sp_ratio * row->kern_size,
+      sane_space = std::max(tosp_table_kn_sp_ratio * row->kern_size,
         tosp_table_xht_sp_ratio * row->xheight);
       sane_threshold = int32_t (floor ((sane_space + row->kern_size) / 2));
 
@@ -485,7 +485,7 @@ void Textord::row_spacing_stats(
             row->space_threshold, row->space_size);
                                  //the minimum sane value
         row->space_threshold = (int32_t) sane_space;
-        row->space_size = MAX (row->space_threshold + 1, row->xheight);
+        row->space_size = std::max(row->space_threshold + 1.0f, row->xheight);
       }
     }
   }
@@ -502,7 +502,7 @@ void Textord::row_spacing_stats(
   else {
     /* Any gap greater than 0.6 x-ht is bound to be a space (isn't it:-) */
     row->min_space =
-      MIN (int32_t (ceil (tosp_fuzzy_space_factor * row->xheight)),
+            std::min(int32_t (ceil (tosp_fuzzy_space_factor * row->xheight)),
       int32_t (row->space_size));
     if (row->min_space <= row->space_threshold)
       // Don't be silly
@@ -540,7 +540,7 @@ void Textord::row_spacing_stats(
 
   if ((tosp_fuzzy_sp_fraction > 0) &&
     (row->space_size > row->space_threshold))
-    row->min_space = MAX (row->min_space,
+    row->min_space = std::max(row->min_space,
       (int32_t) ceil (row->space_threshold +
       tosp_fuzzy_sp_fraction *
       (row->space_size -
@@ -555,7 +555,7 @@ void Textord::row_spacing_stats(
 
   if ((tosp_table_fuzzy_kn_sp_ratio > 0) &&
     (suspected_table || tosp_fuzzy_limit_all))
-    row->min_space = MAX (row->min_space,
+    row->min_space = std::max(row->min_space,
       (int32_t) ceil (tosp_table_fuzzy_kn_sp_ratio *
       row->kern_size));
 
@@ -659,7 +659,7 @@ void Textord::old_to_method(
   // space_threshold
   if (tosp_old_to_constrain_sp_kn && tosp_sanity_method == 1 &&
       ((row->space_size <
-        tosp_min_sane_kn_sp * MAX (row->kern_size, 2.5)) ||
+        tosp_min_sane_kn_sp * std::max(row->kern_size, 2.5f)) ||
        ((row->space_size - row->kern_size) <
         tosp_silly_kn_sp_gap * row->xheight))) {
     if (row->kern_size > 2.5)
@@ -674,12 +674,12 @@ void Textord::old_to_method(
  * isolated_row_stats()
  * Set values for min_space, max_non_space based on row stats only
  *************************************************************************/
-BOOL8 Textord::isolated_row_stats(TO_ROW *row,
-                                  GAPMAP *gapmap,
-                                  STATS *all_gap_stats,
-                                  BOOL8 suspected_table,
-                                  int16_t block_idx,
-                                  int16_t row_idx) {
+bool Textord::isolated_row_stats(TO_ROW* row,
+                                 GAPMAP* gapmap,
+                                 STATS* all_gap_stats,
+                                 bool suspected_table,
+                                 int16_t block_idx,
+                                 int16_t row_idx) {
   float kern_estimate;
   float crude_threshold_estimate;
   int16_t small_gaps_count;
@@ -696,7 +696,7 @@ BOOL8 Textord::isolated_row_stats(TO_ROW *row,
   int32_t row_length;
 
   kern_estimate = all_gap_stats->median ();
-  crude_threshold_estimate = MAX (tosp_init_guess_kn_mult * kern_estimate,
+  crude_threshold_estimate = std::max(tosp_init_guess_kn_mult * kern_estimate,
     tosp_init_guess_xht_mult * row->xheight);
   small_gaps_count = stats_count_under (all_gap_stats,
     (int16_t)
@@ -709,7 +709,7 @@ BOOL8 Textord::isolated_row_stats(TO_ROW *row,
     if (tosp_debug_level > 5)
       tprintf("B:%d R:%d -- Can't do isolated row stats.\n", block_idx,
               row_idx);
-    return FALSE;
+    return false;
   }
   blob_it.set_to_list (row->blob_list ());
   blob_it.mark_cycle_pt ();
@@ -780,14 +780,14 @@ BOOL8 Textord::isolated_row_stats(TO_ROW *row,
     row->kern_size = 0.0f;
     row->space_threshold = 0;
     row->space_size = 0.0f;
-    return FALSE;
+    return false;
   }
 
   if (tosp_debug_level > 5)
     tprintf ("B:%d R:%d -- Isolated row stats: %f %d %f\n",
       block_idx, row_idx,
       row->kern_size, row->space_threshold, row->space_size);
-  return TRUE;
+  return true;
 }
 
 int16_t Textord::stats_count_under(STATS *stats, int16_t threshold) {
@@ -808,7 +808,7 @@ int16_t Textord::stats_count_under(STATS *stats, int16_t threshold) {
  *              (I.e. reasonably large space and kn:sp ratio)
  *     &&    > 3/4 # gaps < kn + (sp - kn)/3
  *              (I.e. most gaps are well away from space estimate)
- *     &&    a gap of max( 3, (sp - kn)/3 ) empty histogram positions is found
+ *     &&    a gap of max(3, (sp - kn) / 3) empty histogram positions is found
  *           somewhere in the histogram between kn and sp
  *     THEN set the threshold and fuzzy limits to this gap - ie NO fuzzies
  *          NO!!!!! the bristol line has "11" with a gap of 12 between the 1's!!!
@@ -836,7 +836,7 @@ void Textord::improve_row_threshold(TO_ROW *row, STATS *all_gap_stats) {
     tprintf (" 1");
   /*
   Look for the first region of all 0's in the histogram which is wider than
-  max( 3, (sp - kn)/3 ) and starts between kn and sp. If found, and current
+  max(3, (sp - kn) / 3) and starts between kn and sp. If found, and current
   threshold is not within it, move the threshold so that is is just inside it.
   */
   reqd_zero_width = (int16_t) floor ((sp - kn) / 3 + 0.5);
@@ -893,17 +893,17 @@ ROW *Textord::make_prop_words(
     TO_ROW *row,     // row to make
     FCOORD rotation  // for drawing
                               ) {
-  BOOL8 bol;                     // start of line
+  bool bol;                     // start of line
   /* prev_ values are for start of word being built. non prev_ values are for
   the gap between the word being built and the next one. */
-  BOOL8 prev_fuzzy_sp;           // probably space
-  BOOL8 prev_fuzzy_non;          // probably not
+  bool prev_fuzzy_sp;           // probably space
+  bool prev_fuzzy_non;          // probably not
   uint8_t prev_blanks;             // in front of word
-  BOOL8 fuzzy_sp = false;        // probably space
-  BOOL8 fuzzy_non = false;       // probably not
+  bool fuzzy_sp = false;        // probably space
+  bool fuzzy_non = false;       // probably not
   uint8_t blanks = 0;              // in front of word
-  BOOL8 prev_gap_was_a_space = FALSE;
-  BOOL8 break_at_next_gap = FALSE;
+  bool prev_gap_was_a_space = false;
+  bool break_at_next_gap = false;
   ROW *real_row;                 // output row
   C_OUTLINE_IT cout_it;
   C_BLOB_LIST cblobs;
@@ -939,10 +939,10 @@ ROW *Textord::make_prop_words(
   box_it.set_to_list (row->blob_list ());
   // new words
   WERD_IT word_it(&words);
-  bol = TRUE;
+  bol = true;
   prev_blanks = 0;
-  prev_fuzzy_sp = FALSE;
-  prev_fuzzy_non = FALSE;
+  prev_fuzzy_sp = false;
+  prev_fuzzy_non = false;
   if (!box_it.empty ()) {
     xstarts[0] = box_it.data ()->bounding_box ().left ();
     if (xstarts[0] > next_rep_char_word_right) {
@@ -950,12 +950,12 @@ ROW *Textord::make_prop_words(
       word = rep_char_it.extract ();
       word_it.add_after_then_move (word);
       /* Set spaces before repeated char word */
-      word->set_flag (W_BOL, TRUE);
-      bol = FALSE;
+      word->set_flag (W_BOL, true);
+      bol = false;
       word->set_blanks (0);
                                  //NO uncertainty
-      word->set_flag (W_FUZZY_SP, FALSE);
-      word->set_flag (W_FUZZY_NON, FALSE);
+      word->set_flag (W_FUZZY_SP, false);
+      word->set_flag (W_FUZZY_NON, false);
       xstarts[0] = word->bounding_box ().left ();
       /* Set spaces after repeated char word (and leave current word set) */
       repetition_spacing = find_mean_blob_spacing (word);
@@ -974,8 +974,8 @@ ROW *Textord::make_prop_words(
           box_it.data ()->bounding_box ().left (),
           box_it.data ()->bounding_box ().bottom (),
           repetition_spacing, current_gap);
-      prev_fuzzy_sp = FALSE;
-      prev_fuzzy_non = FALSE;
+      prev_fuzzy_sp = false;
+      prev_fuzzy_non = false;
       if (rep_char_it.empty ()) {
         next_rep_char_word_right = INT32_MAX;
       }
@@ -1043,14 +1043,14 @@ ROW *Textord::make_prop_words(
           word_count++;
           word_it.add_after_then_move (word);
           if (bol) {
-            word->set_flag (W_BOL, TRUE);
-            bol = FALSE;
+            word->set_flag (W_BOL, true);
+            bol = false;
           }
           if (prev_fuzzy_sp)
                                  //probably space
-            word->set_flag (W_FUZZY_SP, TRUE);
+            word->set_flag (W_FUZZY_SP, true);
           else if (prev_fuzzy_non)
-            word->set_flag (W_FUZZY_NON, TRUE);
+            word->set_flag (W_FUZZY_NON, true);
           //probably not
 
           if (blob_box.left () > next_rep_char_word_right) {
@@ -1078,8 +1078,8 @@ ROW *Textord::make_prop_words(
                 repetition_spacing, current_gap, blanks);
             word->set_blanks (blanks);
                                  //NO uncertainty
-            word->set_flag (W_FUZZY_SP, FALSE);
-            word->set_flag (W_FUZZY_NON, FALSE);
+            word->set_flag (W_FUZZY_SP, false);
+            word->set_flag (W_FUZZY_NON, false);
 
             /* Set spaces after repeated char word (and leave current word set) */
             current_gap =
@@ -1109,7 +1109,7 @@ ROW *Textord::make_prop_words(
 
           if (box_it.at_first () && rep_char_it.empty ()) {
                                  //at end of line
-            word->set_flag (W_EOL, TRUE);
+            word->set_flag (W_EOL, true);
             xstarts[1] = prev_x;
           }
           else {
@@ -1144,12 +1144,12 @@ ROW *Textord::make_prop_words(
             repetition_spacing, current_gap, blanks);
       word->set_blanks (blanks);
                                  //NO uncertainty
-      word->set_flag (W_FUZZY_SP, FALSE);
-      word->set_flag (W_FUZZY_NON, FALSE);
+      word->set_flag (W_FUZZY_SP, false);
+      word->set_flag (W_FUZZY_NON, false);
       prev_x = word->bounding_box ().right ();
       if (rep_char_it.empty ()) {
                                  //at end of line
-        word->set_flag (W_EOL, TRUE);
+        word->set_flag (W_EOL, true);
         xstarts[1] = prev_x;
       }
       else {
@@ -1256,27 +1256,27 @@ ROW *Textord::make_blob_words(
   return nullptr;
 }
 
-BOOL8 Textord::make_a_word_break(
-    TO_ROW *row,   // row being made
-    TBOX blob_box, // for next_blob // how many blanks?
-    int16_t prev_gap,
-    TBOX prev_blob_box,
-    int16_t real_current_gap,
-    int16_t within_xht_current_gap,
-    TBOX next_blob_box,
-    int16_t next_gap,
-    uint8_t &blanks,
-    BOOL8 &fuzzy_sp,
-    BOOL8 &fuzzy_non,
-    BOOL8& prev_gap_was_a_space,
-    BOOL8& break_at_next_gap) {
-  BOOL8 space;
+bool Textord::make_a_word_break(
+        TO_ROW* row,   // row being made
+        TBOX blob_box, // for next_blob // how many blanks?
+        int16_t prev_gap,
+        TBOX prev_blob_box,
+        int16_t real_current_gap,
+        int16_t within_xht_current_gap,
+        TBOX next_blob_box,
+        int16_t next_gap,
+        uint8_t& blanks,
+        bool& fuzzy_sp,
+        bool& fuzzy_non,
+        bool& prev_gap_was_a_space,
+        bool& break_at_next_gap) {
+  bool space;
   int16_t current_gap;
   float fuzzy_sp_to_kn_limit;
 
   if (break_at_next_gap) {
-    break_at_next_gap = FALSE;
-    return TRUE;
+    break_at_next_gap = false;
+    return true;
   }
   /* Inhibit using the reduced gap if
     The kerning is large - chars are not kerned and reducing "f"s can cause
@@ -1302,21 +1302,21 @@ BOOL8 Textord::make_a_word_break(
       if (current_gap < row->min_space) {
         if (current_gap > row->space_threshold) {
           blanks = 1;
-          fuzzy_sp = TRUE;
-          fuzzy_non = FALSE;
+          fuzzy_sp = true;
+          fuzzy_non = false;
         }
         else {
           blanks = 0;
-          fuzzy_sp = FALSE;
-          fuzzy_non = TRUE;
+          fuzzy_sp = false;
+          fuzzy_non = true;
         }
       }
       else {
         blanks = (uint8_t) (current_gap / row->space_size);
         if (blanks < 1)
           blanks = 1;
-        fuzzy_sp = FALSE;
-        fuzzy_non = FALSE;
+        fuzzy_sp = false;
+        fuzzy_non = false;
       }
     }
     return space;
@@ -1324,12 +1324,12 @@ BOOL8 Textord::make_a_word_break(
   else {
   /* New exciting heuristic method */
     if (prev_blob_box.null_box ())  // Beginning of row
-      prev_gap_was_a_space = TRUE;
+      prev_gap_was_a_space = true;
 
                                  //Default as old TO
     space = current_gap > row->space_threshold;
 
-    /* Set defaults for the word break incase we find one.  Currently there are
+    /* Set defaults for the word break in case we find one.  Currently there are
     no fuzzy spaces. Depending on the reliability of the different heuristics
     we may need to set PARTICULAR spaces to fuzzy or not. The values will ONLY
     be used if the function returns TRUE - ie the word is to be broken.
@@ -1338,8 +1338,8 @@ BOOL8 Textord::make_a_word_break(
     if (row->space_size > 1.0f)
       num_blanks = IntCastRounded(current_gap / row->space_size);
     blanks = static_cast<uint8_t>(ClipToRange<int>(num_blanks, 1, UINT8_MAX));
-    fuzzy_sp = FALSE;
-    fuzzy_non = FALSE;
+    fuzzy_sp = false;
+    fuzzy_non = false;
     /*
     If xht measure causes gap to flip one of the 3 thresholds act accordingly -
     despite any other heuristics - the MINIMUM action is to pass a fuzzy kern to
@@ -1348,8 +1348,8 @@ BOOL8 Textord::make_a_word_break(
     if (tosp_use_xht_gaps &&
       (real_current_gap <= row->max_nonspace) &&
     (within_xht_current_gap > row->max_nonspace)) {
-      space = TRUE;
-      fuzzy_non = TRUE;
+      space = true;
+      fuzzy_non = true;
 #ifndef GRAPHICS_DISABLED
       mark_gap (blob_box, 20,
         prev_gap, prev_blob_box.width (),
@@ -1359,11 +1359,11 @@ BOOL8 Textord::make_a_word_break(
     else if (tosp_use_xht_gaps &&
       (real_current_gap <= row->space_threshold) &&
     (within_xht_current_gap > row->space_threshold)) {
-      space = TRUE;
+      space = true;
       if (tosp_flip_fuzz_kn_to_sp)
-        fuzzy_sp = TRUE;
+        fuzzy_sp = true;
       else
-        fuzzy_non = TRUE;
+        fuzzy_non = true;
 #ifndef GRAPHICS_DISABLED
       mark_gap (blob_box, 21,
         prev_gap, prev_blob_box.width (),
@@ -1373,7 +1373,7 @@ BOOL8 Textord::make_a_word_break(
     else if (tosp_use_xht_gaps &&
       (real_current_gap < row->min_space) &&
     (within_xht_current_gap >= row->min_space)) {
-      space = TRUE;
+      space = true;
 #ifndef GRAPHICS_DISABLED
       mark_gap (blob_box, 22,
         prev_gap, prev_blob_box.width (),
@@ -1383,7 +1383,7 @@ BOOL8 Textord::make_a_word_break(
     else if (tosp_force_wordbreak_on_punct &&
              !suspected_punct_blob(row, prev_blob_box) &&
              suspected_punct_blob(row, blob_box)) {
-      break_at_next_gap = TRUE;
+      break_at_next_gap = true;
     }
     /* Now continue with normal heuristics */
     else if ((current_gap < row->min_space) &&
@@ -1405,12 +1405,12 @@ BOOL8 Textord::make_a_word_break(
         if ((tosp_all_flips_fuzzy) ||
         (current_gap > fuzzy_sp_to_kn_limit)) {
           if (tosp_flip_fuzz_sp_to_kn)
-            fuzzy_non = TRUE;
+            fuzzy_non = true;
           else
-            fuzzy_sp = TRUE;
+            fuzzy_sp = true;
         }
         else
-          space = FALSE;
+          space = false;
 #ifndef GRAPHICS_DISABLED
         mark_gap (blob_box, 1,
           prev_gap, prev_blob_box.width (),
@@ -1426,12 +1426,12 @@ BOOL8 Textord::make_a_word_break(
         if ((tosp_all_flips_fuzzy) ||
         (current_gap > fuzzy_sp_to_kn_limit)) {
           if (tosp_flip_fuzz_sp_to_kn)
-            fuzzy_non = TRUE;
+            fuzzy_non = true;
           else
-            fuzzy_sp = TRUE;
+            fuzzy_sp = true;
         }
         else
-          space = FALSE;
+          space = false;
 #ifndef GRAPHICS_DISABLED
         mark_gap (blob_box, 2,
           prev_gap, prev_blob_box.width (),
@@ -1445,12 +1445,12 @@ BOOL8 Textord::make_a_word_break(
         if ((tosp_all_flips_fuzzy) ||
         (current_gap > fuzzy_sp_to_kn_limit)) {
           if (tosp_flip_fuzz_sp_to_kn)
-            fuzzy_non = TRUE;
+            fuzzy_non = true;
           else
-            fuzzy_sp = TRUE;
+            fuzzy_sp = true;
         }
         else
-          space = FALSE;
+          space = false;
 #ifndef GRAPHICS_DISABLED
         mark_gap (blob_box, 3,
           prev_gap, prev_blob_box.width (),
@@ -1464,12 +1464,12 @@ BOOL8 Textord::make_a_word_break(
         if ((tosp_all_flips_fuzzy) ||
         (current_gap > fuzzy_sp_to_kn_limit)) {
           if (tosp_flip_fuzz_sp_to_kn)
-            fuzzy_non = TRUE;
+            fuzzy_non = true;
           else
-            fuzzy_sp = TRUE;
+            fuzzy_sp = true;
         }
         else
-          space = FALSE;
+          space = false;
 #ifndef GRAPHICS_DISABLED
         mark_gap (blob_box, 4,
           prev_gap, prev_blob_box.width (),
@@ -1480,7 +1480,7 @@ BOOL8 Textord::make_a_word_break(
         narrow_blob (row, next_blob_box)) ||
         ((prev_blob_box.width () > 0) &&
       narrow_blob (row, prev_blob_box)))) {
-        fuzzy_sp = TRUE;
+        fuzzy_sp = true;
 #ifndef GRAPHICS_DISABLED
         mark_gap (blob_box, 6,
           prev_gap, prev_blob_box.width (),
@@ -1493,19 +1493,19 @@ BOOL8 Textord::make_a_word_break(
 
       /* Heuristics to turn dubious kerns to spaces */
       /* TRIED THIS BUT IT MADE THINGS WORSE
-          if ( prev_gap == INT16_MAX )
+          if (prev_gap == INT16_MAX)
             prev_gap = 0;  // start of row
-          if ( next_gap == INT16_MAX )
+          if (next_gap == INT16_MAX)
             next_gap = 0;  // end of row
       */
       if ((prev_blob_box.width () > 0) &&
         (next_blob_box.width () > 0) &&
         (current_gap >=
-        tosp_kern_gap_factor1 * MAX (prev_gap, next_gap)) &&
+        tosp_kern_gap_factor1 * std::max(prev_gap, next_gap)) &&
         wide_blob (row, prev_blob_box) &&
       wide_blob (row, next_blob_box)) {
 
-        space = TRUE;
+        space = true;
         /*
         tosp_flip_caution is an attempt to stop the default changing in cases
         where there is a large difference between the kern and space estimates.
@@ -1514,9 +1514,9 @@ BOOL8 Textord::make_a_word_break(
         if ((tosp_flip_fuzz_kn_to_sp) &&
           ((tosp_flip_caution <= 0) ||
           (tosp_flip_caution * row->kern_size > row->space_size)))
-          fuzzy_sp = TRUE;
+          fuzzy_sp = true;
         else
-          fuzzy_non = TRUE;
+          fuzzy_non = true;
 #ifndef GRAPHICS_DISABLED
         mark_gap (blob_box, 7,
           prev_gap, prev_blob_box.width (),
@@ -1526,13 +1526,13 @@ BOOL8 Textord::make_a_word_break(
                  next_blob_box.width() > 0 &&
                  current_gap > 5 &&  // Rule 9 handles small gap, big ratio.
                  current_gap >=
-                   tosp_kern_gap_factor2 * MAX(prev_gap, next_gap) &&
+                   tosp_kern_gap_factor2 * std::max(prev_gap, next_gap) &&
                  !(narrow_blob(row, prev_blob_box) ||
                    suspected_punct_blob(row, prev_blob_box)) &&
                  !(narrow_blob(row, next_blob_box) ||
                    suspected_punct_blob(row, next_blob_box))) {
-        space = TRUE;
-        fuzzy_non = TRUE;
+        space = true;
+        fuzzy_non = true;
 #ifndef GRAPHICS_DISABLED
         mark_gap (blob_box, 8,
           prev_gap, prev_blob_box.width (),
@@ -1542,12 +1542,12 @@ BOOL8 Textord::make_a_word_break(
       else if ((tosp_kern_gap_factor3 > 0) &&
                (prev_blob_box.width () > 0) &&
                (next_blob_box.width () > 0) &&
-               (current_gap >= tosp_kern_gap_factor3 * MAX (prev_gap, next_gap)) &&
+               (current_gap >= tosp_kern_gap_factor3 * std::max(prev_gap, next_gap)) &&
                (!tosp_rule_9_test_punct ||
                 (!suspected_punct_blob (row, prev_blob_box) &&
                  !suspected_punct_blob (row, next_blob_box)))) {
-        space = TRUE;
-        fuzzy_non = TRUE;
+        space = true;
+        fuzzy_non = true;
 #ifndef GRAPHICS_DISABLED
         mark_gap (blob_box, 9,
           prev_gap, prev_blob_box.width (),
@@ -1564,16 +1564,16 @@ BOOL8 Textord::make_a_word_break(
   }
 }
 
-BOOL8 Textord::narrow_blob(TO_ROW *row, TBOX blob_box) {
-  BOOL8 result;
+bool Textord::narrow_blob(TO_ROW* row, TBOX blob_box) {
+  bool result;
   result = ((blob_box.width () <= tosp_narrow_fraction * row->xheight) ||
     (((float) blob_box.width () / blob_box.height ()) <=
     tosp_narrow_aspect_ratio));
   return result;
 }
 
-BOOL8 Textord::wide_blob(TO_ROW *row, TBOX blob_box) {
-  BOOL8 result;
+bool Textord::wide_blob(TO_ROW* row, TBOX blob_box) {
+  bool result;
   if (tosp_wide_fraction > 0) {
     if (tosp_wide_aspect_ratio > 0)
       result = ((blob_box.width () >= tosp_wide_fraction * row->xheight) &&
@@ -1587,8 +1587,8 @@ BOOL8 Textord::wide_blob(TO_ROW *row, TBOX blob_box) {
   return result;
 }
 
-BOOL8 Textord::suspected_punct_blob(TO_ROW *row, TBOX box) {
-  BOOL8 result;
+bool Textord::suspected_punct_blob(TO_ROW* row, TBOX box) {
+  bool result;
   float baseline;
   float blob_x_centre;
   /* Find baseline of centre of blob */
@@ -1728,33 +1728,33 @@ float Textord::find_mean_blob_spacing(WERD *word) {
 }
 
 
-BOOL8 Textord::ignore_big_gap(TO_ROW *row,
-                              int32_t row_length,
-                              GAPMAP *gapmap,
-                              int16_t left,
-                              int16_t right) {
+bool Textord::ignore_big_gap(TO_ROW* row,
+                             int32_t row_length,
+                             GAPMAP* gapmap,
+                             int16_t left,
+                             int16_t right) {
   int16_t gap = right - left + 1;
 
   if (tosp_ignore_big_gaps > 999) return FALSE;  // Don't ignore
   if (tosp_ignore_big_gaps > 0)
     return (gap > tosp_ignore_big_gaps * row->xheight);
   if (gap > tosp_ignore_very_big_gaps * row->xheight)
-    return TRUE;
+    return true;
   if (tosp_ignore_big_gaps == 0) {
     if ((gap > 2.1 * row->xheight) && (row_length > 20 * row->xheight))
-      return TRUE;
+      return true;
     if ((gap > 1.75 * row->xheight) &&
       ((row_length > 35 * row->xheight) ||
       gapmap->table_gap (left, right)))
-      return TRUE;
+      return true;
   }
   else {
   /* ONLY time gaps < 3.0 * xht are ignored is when they are part of a table */
     if ((gap > gapmap_big_gaps * row->xheight) &&
       gapmap->table_gap (left, right))
-      return TRUE;
+      return true;
   }
-  return FALSE;
+  return false;
 }
 
 /**********************************************************************
@@ -1798,7 +1798,7 @@ TBOX Textord::reduced_box_next(
     else if (blob->joined_to_prev ()) {
       reduced_box +=
         reduced_box_for_blob(blob, row, &new_left_above_xht);
-      left_above_xht = MIN (left_above_xht, new_left_above_xht);
+      left_above_xht = std::min(left_above_xht, new_left_above_xht);
     }
   }
                                  //until next real blob

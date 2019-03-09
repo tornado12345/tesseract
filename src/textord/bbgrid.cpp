@@ -27,15 +27,14 @@ namespace tesseract {
 ///////////////////////////////////////////////////////////////////////
 // BBGrid IMPLEMENTATION.
 ///////////////////////////////////////////////////////////////////////
-GridBase::GridBase() {
-}
-
 GridBase::GridBase(int gridsize, const ICOORD& bleft, const ICOORD& tright) {
   Init(gridsize, bleft, tright);
 }
 
-GridBase::~GridBase() {
-}
+// Destructor.
+// It is defined here, so the compiler can create a single vtable
+// instead of weak vtables in every compilation unit.
+GridBase::~GridBase() = default;
 
 // (Re)Initialize the grid. The gridsize is the size in pixels of each cell,
 // and bleft, tright are the bounding box of everything to go in it.
@@ -207,8 +206,8 @@ Pix* IntGrid::ThresholdToPix(int threshold) const {
 }
 
 // Make a Pix of the correct scaled size for the TraceOutline functions.
-Pix* GridReducedPix(const TBOX& box, int gridsize,
-                    ICOORD bleft, int* left, int* bottom) {
+static Pix* GridReducedPix(const TBOX& box, int gridsize,
+                           ICOORD bleft, int* left, int* bottom) {
   // Compute grid bounds of the outline and pad all round by 1.
   int grid_left = (box.left() - bleft.x()) / gridsize - 1;
   int grid_bottom = (box.bottom() - bleft.y()) / gridsize - 1;

@@ -1,8 +1,7 @@
 /**********************************************************************
  * File:        edgblob.h  (Formerly edgeloop.h)
  * Description: Functions to clean up an outline before approximation.
- * Author:		Ray Smith
- * Created:		Tue Mar 26 16:56:25 GMT 1991
+ * Author:      Ray Smith
  *
  * (C) Copyright 1991, Hewlett-Packard Ltd.
  ** Licensed under the Apache License, Version 2.0 (the "License");
@@ -26,6 +25,8 @@
 #include          "coutln.h"
 #include          "crakedge.h"
 
+#include <memory>
+
 #define BUCKETSIZE      16
 
 class OL_BUCKETS
@@ -35,9 +36,8 @@ class OL_BUCKETS
                ICOORD bleft,  //corners
                ICOORD tright);
 
-    ~OL_BUCKETS () {             //cleanup
-      delete[]buckets;
-    }
+    ~OL_BUCKETS () = default;
+
     C_OUTLINE_LIST *operator () (//array access
       int16_t x,                   //image coords
       int16_t y);
@@ -64,7 +64,7 @@ class OL_BUCKETS
                           C_OUTLINE_IT *it);   //destination iterator
 
   private:
-    C_OUTLINE_LIST * buckets;    //array of buckets
+    std::unique_ptr<C_OUTLINE_LIST[]> buckets;    //array of buckets
     int16_t bxdim;                 //size of array
     int16_t bydim;
     ICOORD bl;                   //corners
@@ -87,9 +87,9 @@ void empty_buckets(                     //find blobs
                    BLOCK *block,        //block to scan
                    OL_BUCKETS *buckets  //output buckets
                   );
-BOOL8 capture_children(                       //find children
-                       OL_BUCKETS *buckets,   //bucket sort clanss
-                       C_BLOB_IT *reject_it,  //dead grandchildren
-                       C_OUTLINE_IT *blob_it  //output outlines
-                      );
+bool capture_children(                       //find children
+        OL_BUCKETS* buckets,   //bucket sort clanss
+        C_BLOB_IT* reject_it,  //dead grandchildren
+        C_OUTLINE_IT* blob_it  //output outlines
+);
 #endif

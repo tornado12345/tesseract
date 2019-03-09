@@ -1,5 +1,5 @@
 /* -*-C-*-
- ********************************************************************************
+ ******************************************************************************
  *
  * File:        chop.cpp  (Formerly chop.c)
  * Description:
@@ -21,7 +21,7 @@
  ** See the License for the specific language governing permissions and
  ** limitations under the License.
  *
- *********************************************************************************/
+ *****************************************************************************/
 
 /*----------------------------------------------------------------------
               I n c l u d e s
@@ -31,10 +31,9 @@
 #include "outlines.h"
 #include "callcpp.h"
 #include "plotedges.h"
-#include "const.h"
 #include "wordrec.h"
 
-#include <math.h>
+#include <cmath>
 
 // Include automatically generated configuration file if running autoconf.
 #ifdef HAVE_CONFIG_H
@@ -59,7 +58,7 @@ PRIORITY Wordrec::point_priority(EDGEPT *point) {
 /**
  * @name add_point_to_list
  *
- * Add an edge point to a POINT_GROUP containg a list of other points.
+ * Add an edge point to a POINT_GROUP containing a list of other points.
  */
 void Wordrec::add_point_to_list(PointHeap* point_heap, EDGEPT *point) {
   if (point_heap->size() < MAX_NUM_POINTS - 2) {
@@ -90,7 +89,6 @@ int Wordrec::angle_change(EDGEPT *point1, EDGEPT *point2, EDGEPT *point3) {
   VECTOR vector2;
 
   int angle;
-  float length;
 
   /* Compute angle */
   vector1.x = point2->pos.x - point1->pos.x;
@@ -98,11 +96,11 @@ int Wordrec::angle_change(EDGEPT *point1, EDGEPT *point2, EDGEPT *point3) {
   vector2.x = point3->pos.x - point2->pos.x;
   vector2.y = point3->pos.y - point2->pos.y;
   /* Use cross product */
-  length = (float)sqrt((float)LENGTH(vector1) * LENGTH(vector2));
+  float length = std::sqrt(static_cast<float>(LENGTH(vector1)) * LENGTH(vector2));
   if ((int) length == 0)
     return (0);
   angle = static_cast<int>(floor(asin(CROSS (vector1, vector2) /
-                                      length) / PI * 180.0 + 0.5));
+                                      length) / M_PI * 180.0 + 0.5));
 
   /* Use dot product */
   if (SCALAR (vector1, vector2) < 0)

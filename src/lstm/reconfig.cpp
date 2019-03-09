@@ -3,7 +3,6 @@
 // Description: Network layer that reconfigures the scaling vs feature
 //              depth.
 // Author:      Ray Smith
-// Created:     Wed Feb 26 15:42:25 PST 2014
 //
 // (C) Copyright 2014, Google Inc.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,17 +15,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 ///////////////////////////////////////////////////////////////////////
+
 #include "reconfig.h"
-#include "tprintf.h"
 
 namespace tesseract {
 
 Reconfig::Reconfig(const STRING& name, int ni, int x_scale, int y_scale)
   : Network(NT_RECONFIG, name, ni, ni * x_scale * y_scale),
     x_scale_(x_scale), y_scale_(y_scale) {
-}
-
-Reconfig::~Reconfig() {
 }
 
 // Returns the shape output from the network given an input shape (which may
@@ -52,16 +48,15 @@ int Reconfig::XScaleFactor() const {
 
 // Writes to the given file. Returns false in case of error.
 bool Reconfig::Serialize(TFile* fp) const {
-  if (!Network::Serialize(fp)) return false;
-  if (fp->FWrite(&x_scale_, sizeof(x_scale_), 1) != 1) return false;
-  if (fp->FWrite(&y_scale_, sizeof(y_scale_), 1) != 1) return false;
-  return true;
+  return Network::Serialize(fp) &&
+         fp->Serialize(&x_scale_) &&
+         fp->Serialize(&y_scale_);
 }
 
 // Reads from the given file. Returns false in case of error.
 bool Reconfig::DeSerialize(TFile* fp) {
-  if (fp->FReadEndian(&x_scale_, sizeof(x_scale_), 1) != 1) return false;
-  if (fp->FReadEndian(&y_scale_, sizeof(y_scale_), 1) != 1) return false;
+  if (!fp->DeSerialize(&x_scale_)) return false;
+  if (!fp->DeSerialize(&y_scale_)) return false;
   no_ = ni_ * x_scale_ * y_scale_;
   return true;
 }

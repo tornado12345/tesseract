@@ -1,8 +1,7 @@
 /**********************************************************************
  * File:        sortflts.cpp  (Formerly sfloats.c)
  * Description: Code to maintain a sorted list of floats.
- * Author:		Ray Smith
- * Created:		Mon Oct  4 16:15:40 BST 1993
+ * Author:      Ray Smith
  *
  * (C) Copyright 1993, Hewlett-Packard Ltd.
  ** Licensed under the Apache License, Version 2.0 (the "License");
@@ -23,7 +22,7 @@ ELISTIZE (SORTED_FLOAT)
 /**
  * @name SORTED_FLOATS::add
  *
- * Add a new entry to the sorted lsit of floats.
+ * Add a new entry to the sorted list of floats.
  */
 void SORTED_FLOATS::add(  //add new entry
                         float value,
@@ -47,7 +46,7 @@ void SORTED_FLOATS::add(  //add new entry
 /**
  * @name SORTED_FLOATS::remove
  *
- * Remove an entry from the sorted lsit of floats.
+ * Remove an entry from the sorted list of floats.
  */
 
 void SORTED_FLOATS::remove(  //remove the entry

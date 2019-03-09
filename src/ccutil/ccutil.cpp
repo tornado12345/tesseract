@@ -27,9 +27,10 @@ CCUtil::CCUtil() :
               " whether to adapt to a character", &params_) {
 }
 
-CCUtil::~CCUtil() {
-}
-
+// Destructor.
+// It is defined here, so the compiler can create a single vtable
+// instead of weak vtables in every compilation unit.
+CCUtil::~CCUtil() = default;
 
 CCUtilMutex::CCUtilMutex() {
 #ifdef _WIN32

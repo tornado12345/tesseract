@@ -20,10 +20,9 @@
 
 namespace tesseract {
 
-CUtil::CUtil() {
-}
-
-CUtil::~CUtil() {
-}
+// Destructor.
+// It is defined here, so the compiler can create a single vtable
+// instead of weak vtables in every compilation unit.
+CUtil::~CUtil() = default;
 
 }  // namespace tesseract

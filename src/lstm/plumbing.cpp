@@ -26,9 +26,6 @@ Plumbing::Plumbing(const STRING& name)
   : Network(NT_PARALLEL, name, 0, 0) {
 }
 
-Plumbing::~Plumbing() {
-}
-
 // Suspends/Enables training by setting the training_ flag. Serialize and
 // DeSerialize only operate on the run-time data if state is false.
 void Plumbing::SetEnableTraining(TrainingState state) {
@@ -177,17 +174,17 @@ float* Plumbing::LayerLearningRatePtr(const char* id) const {
     ASSERT_HOST(*next_id == ':');
     return plumbing->LayerLearningRatePtr(next_id + 1);
   }
-  if (index < 0 || index >= learning_rates_.size()) return nullptr;
+  if (index >= learning_rates_.size()) return nullptr;
   return &learning_rates_[index];
 }
 
 // Writes to the given file. Returns false in case of error.
 bool Plumbing::Serialize(TFile* fp) const {
   if (!Network::Serialize(fp)) return false;
-  int32_t size = stack_.size();
+  uint32_t size = stack_.size();
   // Can't use PointerVector::Serialize here as we need a special DeSerialize.
-  if (fp->FWrite(&size, sizeof(size), 1) != 1) return false;
-  for (int i = 0; i < size; ++i)
+  if (!fp->Serialize(&size)) return false;
+  for (uint32_t i = 0; i < size; ++i)
     if (!stack_[i]->Serialize(fp)) return false;
   if ((network_flags_ & NF_LAYER_SPECIFIC_LR) &&
       !learning_rates_.Serialize(fp)) {
@@ -200,9 +197,9 @@ bool Plumbing::Serialize(TFile* fp) const {
 bool Plumbing::DeSerialize(TFile* fp) {
   stack_.truncate(0);
   no_ = 0;  // We will be modifying this as we AddToStack.
-  int32_t size;
-  if (fp->FReadEndian(&size, sizeof(size), 1) != 1) return false;
-  for (int i = 0; i < size; ++i) {
+  uint32_t size;
+  if (!fp->DeSerialize(&size)) return false;
+  for (uint32_t i = 0; i < size; ++i) {
     Network* network = CreateFromFile(fp);
     if (network == nullptr) return false;
     AddToStack(network);

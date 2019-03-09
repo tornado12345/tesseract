@@ -1,8 +1,7 @@
 /**********************************************************************
  * File:        scanedg.cpp  (Formerly scanedge.c)
  * Description: Raster scanning crack based edge extractor.
- * Author:					Ray Smith
- * Created:					Fri Mar 22 16:11:50 GMT 1991
+ * Author:      Ray Smith
  *
  * (C) Copyright 1991, Hewlett-Packard Ltd.
  ** Licensed under the Apache License, Version 2.0 (the "License");
@@ -46,15 +45,17 @@ void block_edges(Pix *t_pix,           // thresholded image
   int height = pixGetHeight(t_pix);
   int wpl = pixGetWpl(t_pix);
                                  // lines in progress
-  CRACKEDGE **ptrline = new CRACKEDGE*[width + 1];
+  std::unique_ptr<CRACKEDGE*[]> ptrline(new CRACKEDGE*[width + 1]);
   CRACKEDGE *free_cracks = nullptr;
 
   block->bounding_box(bleft, tright);  // block box
+  ASSERT_HOST(tright.x() <= width);
+  ASSERT_HOST(tright.y() <= height);
   int block_width = tright.x() - bleft.x();
   for (int x = block_width; x >= 0; x--)
     ptrline[x] = nullptr;           //  no lines in progress
 
-  uint8_t* bwline = new uint8_t[width];
+  std::unique_ptr<uint8_t[]> bwline(new uint8_t[width]);
 
   uint8_t margin = WHITE_PIX;
 
@@ -65,17 +66,15 @@ void block_edges(Pix *t_pix,           // thresholded image
       for (int x = 0; x < block_width; ++x) {
         bwline[x] = GET_DATA_BIT(line, x + bleft.x()) ^ 1;
       }
-      make_margins(block, &line_it, bwline, margin, bleft.x(), tright.x(), y);
+      make_margins(block, &line_it, bwline.get(), margin, bleft.x(), tright.x(), y);
     } else {
-      memset(bwline, margin, block_width * sizeof(bwline[0]));
+      memset(bwline.get(), margin, block_width * sizeof(bwline[0]));
     }
     line_edges(bleft.x(), y, block_width,
-               margin, bwline, ptrline, &free_cracks, outline_it);
+               margin, bwline.get(), ptrline.get(), &free_cracks, outline_it);
   }
 
   free_crackedges(free_cracks);  // really free them
-  delete[] ptrline;
-  delete[] bwline;
 }
 
 
@@ -94,14 +93,13 @@ void make_margins(                         //get a line
                   int16_t right,
                   int16_t y                  //line coord
                  ) {
-  PB_LINE_IT *lines;
   ICOORDELT_IT seg_it;
   int32_t start;                   //of segment
   int16_t xext;                    //of segment
   int xindex;                    //index to pixel
 
   if (block->poly_block () != nullptr) {
-    lines = new PB_LINE_IT (block->poly_block ());
+    std::unique_ptr<PB_LINE_IT> lines(new PB_LINE_IT (block->poly_block ()));
     const std::unique_ptr</*non-const*/ ICOORDELT_LIST> segments(
         lines->get_line(y));
     if (!segments->empty ()) {
@@ -124,7 +122,6 @@ void make_margins(                         //get a line
       for (xindex = left; xindex < right; xindex++)
         pixels[xindex - left] = margin;
     }
-    delete lines;
   }
   else {
     start = line_it->get_line (y, xext);

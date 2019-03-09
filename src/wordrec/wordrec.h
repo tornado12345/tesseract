@@ -19,16 +19,85 @@
 #ifndef TESSERACT_WORDREC_WORDREC_H_
 #define TESSERACT_WORDREC_WORDREC_H_
 
+#ifdef DISABLED_LEGACY_ENGINE
+
+#include "config_auto.h"
+
+#include <cstdint>             // for int16_t, int32_t
+#include "callcpp.h"           // for C_COL
+#include "chop.h"              // for PointHeap, MAX_NUM_POINTS
+#include "classify.h"          // for Classify
+#include "elst.h"              // for ELIST_ITERATOR, ELISTIZEH, ELIST_LINK
+#include "findseam.h"          // for SeamQueue, SeamPile
+#include "genericvector.h"     // for GenericVector
+#include "oldlist.h"           // for LIST
+#include "params.h"            // for INT_VAR_H, IntParam, BOOL_VAR_H, BoolP...
+#include "points.h"            // for ICOORD
+#include "ratngs.h"            // for BLOB_CHOICE_LIST (ptr only), BLOB_CHOI...
+#include "seam.h"              // for SEAM (ptr only), PRIORITY
+#include "stopper.h"           // for DANGERR
+
+class EDGEPT_CLIST;
+class MATRIX;
+class STRING;
+class TBOX;
+class UNICHARSET;
+class WERD_RES;
+
+namespace tesseract { class LMPainPoints; }
+namespace tesseract { class TessdataManager; }
+namespace tesseract { struct BestChoiceBundle; }
+
+struct BlamerBundle;
+struct EDGEPT;
+struct MATRIX_COORD;
+struct SPLIT;
+struct TBLOB;
+struct TESSLINE;
+struct TWERD;
+
+namespace tesseract {
+
+/* ccmain/tstruct.cpp */
+
+class Wordrec : public Classify {
+ public:
+  // config parameters
+
+  BOOL_VAR_H(wordrec_debug_blamer, false, "Print blamer debug messages");
+
+  BOOL_VAR_H(wordrec_run_blamer, false, "Try to set the blame for errors");
+
+  // methods
+  Wordrec();
+  virtual ~Wordrec() = default;
+
+  // tface.cpp
+  void program_editup(const char *textbase, TessdataManager *init_classifier,
+                      TessdataManager *init_dict);
+  void program_editdown(int32_t elasped_time);
+  int end_recog();
+  int dict_word(const WERD_CHOICE &word);
+
+  // Member variables
+  WERD_CHOICE *prev_word_best_choice_;
+};
+
+}  // namespace tesseract
+
+#else  // DISABLED_LEGACY_ENGINE not defined
+
 #include "associate.h"
 #include "classify.h"
 #include "dict.h"
 #include "language_model.h"
 #include "ratngs.h"
 #include "matrix.h"
-#include "gradechop.h"
 #include "seam.h"
 #include "findseam.h"
 #include "callcpp.h"
+
+#include <memory>
 
 class WERD_RES;
 
@@ -179,7 +248,7 @@ class Wordrec : public Classify {
 
   // methods from wordrec/*.cpp ***********************************************
   Wordrec();
-  virtual ~Wordrec();
+  virtual ~Wordrec() = default;
 
   // Fills word->alt_choices with alternative paths found during
   // chopping/segmentation search that are kept in best_choices.
@@ -351,8 +420,8 @@ class Wordrec : public Classify {
                            SEAM ** seam, TBLOB * blob);
 
   // gradechop.cpp
-  PRIORITY grade_split_length(register SPLIT *split);
-  PRIORITY grade_sharpness(register SPLIT *split);
+  PRIORITY grade_split_length(SPLIT *split);
+  PRIORITY grade_sharpness(SPLIT *split);
 
   // outlines.cpp
   bool near_point(EDGEPT *point, EDGEPT *line_pt_0, EDGEPT *line_pt_1,
@@ -404,7 +473,7 @@ class Wordrec : public Classify {
 
   // Member variables.
 
-  LanguageModel *language_model_;
+  std::unique_ptr<LanguageModel> language_model_;
   PRIORITY pass2_ok_split;
   // Stores the best choice for the previous word in the paragraph.
   // This variable is modified by PAGE_RES_IT when iterating over
@@ -484,7 +553,8 @@ class Wordrec : public Classify {
                               STRING *blamer_debug);
 };
 
-
 }  // namespace tesseract
+
+#endif  // DISABLED_LEGACY_ENGINE
 
 #endif  // TESSERACT_WORDREC_WORDREC_H_

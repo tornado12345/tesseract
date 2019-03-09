@@ -43,10 +43,11 @@ namespace tesseract {
  * or superscript letter based only on y position.  Also do this for the
  * right side.
  */
-void YOutlierPieces(WERD_RES *word, int rebuilt_blob_index,
-                    int super_y_bottom, int sub_y_top,
-                    ScriptPos *leading_pos, int *num_leading_outliers,
-                    ScriptPos *trailing_pos, int *num_trailing_outliers) {
+static void YOutlierPieces(WERD_RES *word, int rebuilt_blob_index,
+                           int super_y_bottom, int sub_y_top,
+                           ScriptPos *leading_pos, int *num_leading_outliers,
+                           ScriptPos *trailing_pos,
+                           int *num_trailing_outliers) {
   ScriptPos sp_unused1, sp_unused2;
   int unused1, unused2;
   if (!leading_pos) leading_pos = &sp_unused1;
@@ -91,7 +92,7 @@ void YOutlierPieces(WERD_RES *word, int rebuilt_blob_index,
 /**
  * Attempt to split off any high (or low) bits at the ends of the word with poor
  * certainty and recognize them separately.  If the certainty gets much better
- * and other sanity checks pass, acccept.
+ * and other sanity checks pass, accept.
  *
  * This superscript fix is meant to be called in the second pass of recognition
  * when we have tried once and already have a preliminary answer for word.

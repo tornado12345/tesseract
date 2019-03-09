@@ -17,19 +17,18 @@
 //
 ///////////////////////////////////////////////////////////////////////
 
-#ifndef           PGEDIT_H
-#define           PGEDIT_H
+#ifndef PGEDIT_H
+#define PGEDIT_H
 
-#include          "ocrblock.h"
-#include          "ocrrow.h"
-#include          "werd.h"
-#include          "rect.h"
-#include          "params.h"
-#include          "tesseractclass.h"
+#include "params.h"      // for INT_VAR_H, IntParam, STRING_VAR_H, StringParam
+#include "scrollview.h"  // for SVEvent (ptr only), SVEventHandler, ScrollView
 
-class ScrollView;
-class SVMenuNode;
-struct SVEvent;
+class BLOCK_LIST;
+class PAGE_RES;
+
+namespace tesseract {
+  class Tesseract;
+}
 
 // A small event handler class to process incoming events to
 // this window.
@@ -70,13 +69,6 @@ extern double_VAR_H (editor_smd_scale_factor, 1.0, "Scaling for smd image");
 
 ScrollView* bln_word_window_handle();  //return handle
 void build_image_window(int width, int height);
-void display_bln_lines(ScrollView window,
-                       ScrollView::Color colour,
-                       float scale_factor,
-                       float y_offset,
-                       float minx,
-                       float maxx);
-                                 //function to call
 void pgeditor_msg(  //message display
                   const char *msg);
 void pgeditor_show_point(  //display coords

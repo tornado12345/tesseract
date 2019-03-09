@@ -17,7 +17,7 @@
  *
  **********************************************************************/
 
-#include <stdlib.h>
+#include <cstdlib>
 #include "host.h"
 #include "elst2.h"
 
@@ -102,7 +102,7 @@ int32_t ELIST2::length() const {  // count elements
  *
  *  Sort elements on list
  *  NB If you don't like the const declarations in the comparator, coerce yours:
- *   ( int (*)(const void *, const void *)
+ *   (int (*)(const void *, const void *)
  **********************************************************************/
 
 void
@@ -127,7 +127,7 @@ const void *, const void *)) {
   }
 
   /* Sort the pointer array */
-  qsort ((char *) base, count, sizeof (*base), comparator);
+  qsort(base, count, sizeof(*base), comparator);
 
   /* Rebuild the list from the sorted pointers */
   current = base;
@@ -439,9 +439,9 @@ ELIST2_LINK *ELIST2_ITERATOR::extract_sublist(                              //fr
       nullptr);
   #endif
 
-  ex_current_was_last = other_it->ex_current_was_last = FALSE;
-  ex_current_was_cycle_pt = FALSE;
-  other_it->ex_current_was_cycle_pt = FALSE;
+  ex_current_was_last = other_it->ex_current_was_last = false;
+  ex_current_was_cycle_pt = false;
+  other_it->ex_current_was_cycle_pt = false;
 
   temp_it.mark_cycle_pt ();
   do {                           //walk sublist
@@ -450,14 +450,14 @@ ELIST2_LINK *ELIST2_ITERATOR::extract_sublist(                              //fr
 
     if (temp_it.at_last ()) {
       list->last = prev;
-      ex_current_was_last = other_it->ex_current_was_last = TRUE;
+      ex_current_was_last = other_it->ex_current_was_last = true;
     }
 
     if (temp_it.current == cycle_pt)
-      ex_current_was_cycle_pt = TRUE;
+      ex_current_was_cycle_pt = true;
 
     if (temp_it.current == other_it->cycle_pt)
-      other_it->ex_current_was_cycle_pt = TRUE;
+      other_it->ex_current_was_cycle_pt = true;
 
     temp_it.forward ();
   }

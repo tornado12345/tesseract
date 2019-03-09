@@ -24,29 +24,29 @@
 #include "config_auto.h"
 #endif
 
-#include          "stderr.h"
-#include          "basedir.h"
-#include          "tessvars.h"
-#include          "control.h"
-#include          "reject.h"
-#include          "pageres.h"
-#include          "nwmain.h"
-#include          "pgedit.h"
-#include          "tprintf.h"
-#include          "tessedit.h"
+#include "basedir.h"
+#include "tessvars.h"
+#include "control.h"
+#include "reject.h"
+#include "pageres.h"
+#include "pgedit.h"
+#include "tprintf.h"
+#include "tessedit.h"
 #include "stopper.h"
+#ifndef DISABLED_LEGACY_ENGINE
 #include "intmatcher.h"
 #include "chop.h"
-#include "efio.h"
-#include "danerror.h"
+#endif
 #include "globals.h"
 #ifndef ANDROID_BUILD
 #include "lstmrecognizer.h"
 #endif
 #include "tesseractclass.h"
 #include "params.h"
+#ifdef DISABLED_LEGACY_ENGINE
+#include "matchdefs.h"
+#endif
 
-#define VARDIR        "configs/" /*variables files */
                                  // config under api
 #define API_CONFIG      "configs/api_config"
 
@@ -111,8 +111,9 @@ bool Tesseract::init_tesseract_lang_data(
             " to your \"tessdata\" directory.\n");
     return false;
   }
+#ifndef DISABLED_LEGACY_ENGINE
   if (oem == OEM_DEFAULT) {
-    // Set the engine mode from availability, which can then be overidden by
+    // Set the engine mode from availability, which can then be overridden by
     // the config file when we read it below.
     if (!mgr->IsLSTMAvailable()) {
       tessedit_ocr_engine_mode.set_value(OEM_TESSERACT_ONLY);
@@ -122,6 +123,7 @@ bool Tesseract::init_tesseract_lang_data(
       tessedit_ocr_engine_mode.set_value(OEM_TESSERACT_LSTM_COMBINED);
     }
   }
+#endif  // ndef DISABLED_LEGACY_ENGINE
 
   // If a language specific config file (lang.config) exists, load it in.
   TFile fp;
@@ -176,8 +178,12 @@ bool Tesseract::init_tesseract_lang_data(
 // engine-specific data files need to be loaded.
 // If LSTM_ONLY is requested, the base Tesseract files are *Not* required.
 #ifndef ANDROID_BUILD
+#ifdef DISABLED_LEGACY_ENGINE
+  if (tessedit_ocr_engine_mode == OEM_LSTM_ONLY) {
+#else
   if (tessedit_ocr_engine_mode == OEM_LSTM_ONLY ||
       tessedit_ocr_engine_mode == OEM_TESSERACT_LSTM_COMBINED) {
+#endif  // ndef DISABLED_LEGACY_ENGINE
     if (mgr->IsComponentAvailable(TESSDATA_LSTM)) {
       lstm_recognizer_ = new LSTMRecognizer;
       ASSERT_HOST(
@@ -187,18 +193,21 @@ bool Tesseract::init_tesseract_lang_data(
       tessedit_ocr_engine_mode.set_value(OEM_TESSERACT_ONLY);
     }
   }
-#endif
+#endif  // ndef ANDROID_BUILD
 
   // Load the unicharset
   if (tessedit_ocr_engine_mode == OEM_LSTM_ONLY) {
     // Avoid requiring a unicharset when we aren't running base tesseract.
 #ifndef ANDROID_BUILD
     unicharset.CopyFrom(lstm_recognizer_->GetUnicharset());
-#endif
-  } else if (!mgr->GetComponent(TESSDATA_UNICHARSET, &fp) ||
+#endif  // ndef ANDROID_BUILD
+  }
+#ifndef DISABLED_LEGACY_ENGINE
+  else if (!mgr->GetComponent(TESSDATA_UNICHARSET, &fp) ||
              !unicharset.load_from_file(&fp, false)) {
     return false;
   }
+#endif  // ndef DISABLED_LEGACY_ENGINE
   if (unicharset.size() > MAX_NUM_CLASSES) {
     tprintf("Error: Size of unicharset is greater than MAX_NUM_CLASSES\n");
     return false;
@@ -216,6 +225,7 @@ bool Tesseract::init_tesseract_lang_data(
                                      ambigs_debug_level,
                                      use_ambigs_for_adaption, &unicharset);
   }
+#ifndef DISABLED_LEGACY_ENGINE
   // Init ParamsModel.
   // Load pass1 and pass2 weights (for now these two sets are the same, but in
   // the future separate sets of weights can be generated).
@@ -229,6 +239,7 @@ bool Tesseract::init_tesseract_lang_data(
       }
     }
   }
+#endif  // ndef DISABLED_LEGACY_ENGINE
 
   return true;
 }
@@ -340,6 +351,7 @@ int Tesseract::init_tesseract(const char *arg0, const char *textbase,
     tprintf("Tesseract couldn't load any languages!\n");
     return -1;  // Couldn't load any language!
   }
+#ifndef DISABLED_LEGACY_ENGINE
   if (!sub_langs_.empty()) {
     // In multilingual mode word ratings have to be directly comparable,
     // so use the same language model weights for all languages:
@@ -361,6 +373,7 @@ int Tesseract::init_tesseract(const char *arg0, const char *textbase,
   }
 
   SetupUniversalFontIds();
+#endif  // ndef DISABLED_LEGACY_ENGINE
   return 0;
 }
 
@@ -402,6 +415,8 @@ int Tesseract::init_tesseract_internal(const char *arg0, const char *textbase,
                  init_tesseract ? mgr : nullptr);
   return 0;                      //Normal exit
 }
+
+#ifndef DISABLED_LEGACY_ENGINE
 
 // Helper builds the all_fonts table by adding new fonts from new_fonts.
 static void CollectFonts(const UnicityTable<FontInfo>& new_fonts,
@@ -454,6 +469,8 @@ int Tesseract::init_tesseract_lm(const char *arg0, const char *textbase,
   getDict().FinishLoad();
   return 0;
 }
+
+#endif  // ndef DISABLED_LEGACY_ENGINE
 
 void Tesseract::end_tesseract() {
   end_recog();

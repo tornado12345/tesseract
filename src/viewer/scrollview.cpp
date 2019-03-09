@@ -18,16 +18,16 @@
 ///////////////////////////////////////////////////////////////////////
 //
 
-#include <stdarg.h>
-#include <limits.h>
-#include <string.h>
-#include <map>
-#include <utility>
+#define NOMINMAX
+
 #include <algorithm>
-#include <vector>
-#include <string>
-#include <cstring>
 #include <climits>
+#include <cstdarg>
+#include <cstring>
+#include <map>
+#include <string>
+#include <utility>
+#include <vector>
 
 // Include automatically generated configuration file if running autoconf.
 #ifdef HAVE_CONFIG_H
@@ -72,6 +72,11 @@ SVEvent* SVEvent::copy() {
   any->window = window;
   return any;
 }
+
+// Destructor.
+// It is defined here, so the compiler can create a single vtable
+// instead of weak vtables in every compilation unit.
+SVEventHandler::~SVEventHandler() = default;
 
 #ifndef GRAPHICS_DISABLED
 /// This is the main loop which handles the ScrollView-logic from the server
@@ -142,7 +147,7 @@ void* ScrollView::MessageReceiver(void* a) {
                                                         cur->type);
       std::pair<ScrollView*, SVEventType> awaiting_list_any(cur->window,
                                                             SVET_ANY);
-      std::pair<ScrollView*, SVEventType> awaiting_list_any_window((ScrollView*)0,
+      std::pair<ScrollView*, SVEventType> awaiting_list_any_window((ScrollView*)nullptr,
                                                             SVET_ANY);
       waiting_for_events_mu->Lock();
       if (waiting_for_events.count(awaiting_list) > 0) {
@@ -179,7 +184,7 @@ void* ScrollView::MessageReceiver(void* a) {
 }
 
 // Table to implement the color index values in the old system.
-int table_colors[ScrollView::GREEN_YELLOW+1][4]= {
+static const uint8_t table_colors[ScrollView::GREEN_YELLOW+1][4]= {
   {0, 0, 0, 0},        // NONE (transparent)
   {0, 0, 0, 255},        // BLACK.
   {255, 255, 255, 255},  // WHITE.
@@ -389,14 +394,14 @@ void ScrollView::SendMsg(const char* format, ...) {
   if (!points_->empty)
     SendPolygon();
   va_list args;
-  char message[kMaxMsgSize];
+  char message[kMaxMsgSize - 4];
 
   va_start(args, format);  // variable list
-  vsnprintf(message, kMaxMsgSize, format, args);
+  vsnprintf(message, sizeof(message), format, args);
   va_end(args);
 
   char form[kMaxMsgSize];
-  snprintf(form, kMaxMsgSize, "w%u:%s\n", window_id_, message);
+  snprintf(form, sizeof(form), "w%u:%s\n", window_id_, message);
 
   stream_->Send(form);
 }
@@ -442,7 +447,7 @@ SVEvent* ScrollView::AwaitEvent(SVEventType type) {
   SVSemaphore* sem = new SVSemaphore();
   std::pair<ScrollView*, SVEventType> ea(this, type);
   waiting_for_events_mu->Lock();
-  waiting_for_events[ea] = std::pair<SVSemaphore*, SVEvent*> (sem, (SVEvent*)0);
+  waiting_for_events[ea] = std::pair<SVSemaphore*, SVEvent*> (sem, (SVEvent*)nullptr);
   waiting_for_events_mu->Unlock();
   // Wait on it, but first flush.
   stream_->Flush();
@@ -461,9 +466,9 @@ SVEvent* ScrollView::AwaitEvent(SVEventType type) {
 SVEvent* ScrollView::AwaitEventAnyWindow() {
   // Initialize the waiting semaphore.
   SVSemaphore* sem = new SVSemaphore();
-  std::pair<ScrollView*, SVEventType> ea((ScrollView*)0, SVET_ANY);
+  std::pair<ScrollView*, SVEventType> ea((ScrollView*)nullptr, SVET_ANY);
   waiting_for_events_mu->Lock();
-  waiting_for_events[ea] = std::pair<SVSemaphore*, SVEvent*> (sem, (SVEvent*)0);
+  waiting_for_events[ea] = std::pair<SVSemaphore*, SVEvent*> (sem, (SVEvent*)nullptr);
   waiting_for_events_mu->Unlock();
   // Wait on it.
   stream_->Flush();
@@ -557,14 +562,14 @@ void ScrollView::AlwaysOnTop(bool b) {
 // Adds a message entry to the message box.
 void ScrollView::AddMessage(const char* format, ...) {
   va_list args;
-  char message[kMaxMsgSize];
-  char form[kMaxMsgSize];
+  char message[kMaxMsgSize - 4];
 
   va_start(args, format);  // variable list
-  vsnprintf(message, kMaxMsgSize, format, args);
+  vsnprintf(message, sizeof(message), format, args);
   va_end(args);
 
-  snprintf(form, kMaxMsgSize, "w%u:%s", window_id_, message);
+  char form[kMaxMsgSize];
+  snprintf(form, sizeof(form), "w%u:%s", window_id_, message);
 
   char* esc = AddEscapeChars(form);
   SendMsg("addMessage(\"%s\")", esc);
@@ -756,7 +761,7 @@ void ScrollView::ZoomToRectangle(int x1, int y1, int x2, int y2) {
   y1 = TranslateYCoordinate(y1);
   y2 = TranslateYCoordinate(y2);
   SendMsg("zoomRectangle(%d,%d,%d,%d)",
-          MIN(x1, x2), MIN(y1, y2), MAX(x1, x2), MAX(y1, y2));
+          std::min(x1, x2), std::min(y1, y2), std::max(x1, x2), std::max(y1, y2));
 }
 
 // Send an image of type Pix.

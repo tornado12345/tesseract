@@ -2,7 +2,6 @@
 // File:        input.cpp
 // Description: Input layer class for neural network implementations.
 // Author:      Ray Smith
-// Created:     Thu Mar 13 09:10:34 PDT 2014
 //
 // (C) Copyright 2014, Google Inc.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -35,9 +34,6 @@ Input::Input(const STRING& name, const StaticShape& shape)
       shape_(shape),
       cached_x_scale_(1) {
   if (shape.height() == 1) ni_ = shape.depth();
-}
-
-Input::~Input() {
 }
 
 // Writes to the given file. Returns false in case of error.
@@ -96,7 +92,7 @@ Pix* Input::PrepareLSTMInputs(const ImageData& image_data,
     tprintf("Bad pix from ImageData!\n");
     return nullptr;
   }
-  if (width <= min_width || height < min_width) {
+  if (width < min_width || height < min_width) {
     tprintf("Image too small to scale!! (%dx%d vs min width of %d)\n", width,
             height, min_width);
     pixDestroy(&pix);

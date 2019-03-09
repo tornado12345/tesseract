@@ -32,6 +32,7 @@
 class MATRIX;
 class WERD_RES;
 
+#define CHARS_PER_LINE 500
 #define MAX_WERD_LENGTH        (int64_t) 128
 #define NO_RATING               -1
 
@@ -46,7 +47,7 @@ struct CHAR_FRAGMENT_INFO {
 
 namespace tesseract {
 
-typedef GenericVector<Dawg *> DawgVector;
+using DawgVector = GenericVector<Dawg *>;
 
 //
 // Constants
@@ -340,7 +341,7 @@ class Dict {
    * For word_index > 0 the corresponding state (active_dawgs and punc position)
    * can be obtained from dawg_args->updated_dawgs passed to
    * def_letter_is_okay for word_index-1.
-   * Note: the function assumes that active_dawgs, nd updated_dawgs
+   * Note: the function assumes that active_dawgs, and updated_dawgs
    * member variables of dawg_args are not nullptr.
    *
    * Output:
@@ -350,15 +351,17 @@ class Dict {
    */
 
   //
-  int def_letter_is_okay(void* void_dawg_args,
+  int def_letter_is_okay(void* void_dawg_args, const UNICHARSET& unicharset,
                          UNICHAR_ID unichar_id, bool word_end) const;
 
   int (Dict::*letter_is_okay_)(void* void_dawg_args,
+                               const UNICHARSET& unicharset,
                                UNICHAR_ID unichar_id, bool word_end) const;
   /// Calls letter_is_okay_ member function.
-  int LetterIsOkay(void* void_dawg_args,
+  int LetterIsOkay(void* void_dawg_args, const UNICHARSET& unicharset,
                    UNICHAR_ID unichar_id, bool word_end) const {
-    return (this->*letter_is_okay_)(void_dawg_args, unichar_id, word_end);
+    return (this->*letter_is_okay_)(void_dawg_args,
+                                    unicharset, unichar_id, word_end);
   }
 
 
@@ -427,11 +430,12 @@ class Dict {
   // Given a unichar from a string and a given dawg, return the unichar
   // we should use to match in that dawg type.  (for example, in the number
   // dawg, all numbers are transformed to kPatternUnicharId).
-  inline UNICHAR_ID char_for_dawg(UNICHAR_ID ch, const Dawg *dawg) const {
+  UNICHAR_ID char_for_dawg(const UNICHARSET& unicharset, UNICHAR_ID ch,
+                           const Dawg *dawg) const {
     if (!dawg) return ch;
     switch (dawg->type()) {
       case DAWG_TYPE_NUMBER:
-        return getUnicharset().get_isdigit(ch) ? Dawg::kPatternUnicharID : ch;
+        return unicharset.get_isdigit(ch) ? Dawg::kPatternUnicharID : ch;
       default:
         return ch;
     }
@@ -507,7 +511,7 @@ class Dict {
   /** Same as above, but for ambiguities with replace flag set. */
   UnicharAmbigs *replace_ambigs_table_;
   /** Additional certainty padding allowed before a word is rejected. */
-  FLOAT32 reject_offset_;
+  float reject_offset_;
   // Cached UNICHAR_IDs:
   UNICHAR_ID wildcard_unichar_id_;    // kDictWildcard.
   UNICHAR_ID apostrophe_unichar_id_;  // kApostropheSymbol.
@@ -532,7 +536,7 @@ class Dict {
   Trie *pending_words_;
   /// The following pointers are only cached for convenience.
   /// The dawgs will be deleted when dawgs_ vector is destroyed.
-  // bigram_dawg_ points to a dawg of two-word bigrams which always supercede if
+  // bigram_dawg_ points to a dawg of two-word bigrams which always supersede if
   // any of them are present on the best choices list for a word pair.
   // the bigrams are stored as space-separated words where:
   // (1) leading and trailing punctuation has been removed from each word and

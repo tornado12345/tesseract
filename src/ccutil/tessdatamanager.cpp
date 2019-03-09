@@ -2,7 +2,6 @@
 // File:        tessdatamanager.cpp
 // Description: Functions to handle loading/combining tesseract data files.
 // Author:      Daria Antonova
-// Created:     Wed Jun 03 11:26:43 PST 2009
 //
 // (C) Copyright 2009, Google Inc.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -23,8 +22,15 @@
 
 #include "tessdatamanager.h"
 
-#include <stdio.h>
+#include <cstdio>
+#include <string>
 
+#if defined(HAVE_LIBARCHIVE)
+#include <archive.h>
+#include <archive_entry.h>
+#endif
+
+#include "errcode.h"
 #include "helpers.h"
 #include "serialis.h"
 #include "strngs.h"
@@ -51,9 +57,49 @@ void TessdataManager::LoadFileLater(const char *data_file_name) {
   data_file_name_ = data_file_name;
 }
 
+#if defined(HAVE_LIBARCHIVE)
+bool TessdataManager::LoadArchiveFile(const char *filename) {
+  bool result = false;
+  archive *a = archive_read_new();
+  if (a != nullptr) {
+    archive_read_support_filter_all(a);
+    archive_read_support_format_all(a);
+    if (archive_read_open_filename(a, filename, 8192) == ARCHIVE_OK) {
+      archive_entry *ae;
+      while (archive_read_next_header(a, &ae) == ARCHIVE_OK) {
+        const char *component = archive_entry_pathname(ae);
+        if (component != nullptr) {
+          TessdataType type;
+          if (TessdataTypeFromFileName(component, &type)) {
+            int64_t size = archive_entry_size(ae);
+            if (size > 0) {
+              entries_[type].resize_no_init(size);
+              if (archive_read_data(a, &entries_[type][0], size) == size) {
+                is_loaded_ = true;
+              }
+            }
+          }
+        }
+      }
+      result = is_loaded_;
+#if defined(DEBUG)
+    } else {
+      tprintf("archive_read_open_filename(...,%s,...) failed, %s\n",
+              filename, strerror(archive_errno(a)));
+#endif
+    }
+    archive_read_free(a);
+  }
+  return result;
+}
+#endif
+
 bool TessdataManager::Init(const char *data_file_name) {
   GenericVector<char> data;
   if (reader_ == nullptr) {
+#if defined(HAVE_LIBARCHIVE)
+    if (LoadArchiveFile(data_file_name)) return true;
+#endif
     if (!LoadDataFromFile(data_file_name, &data)) return false;
   } else {
     if (!(*reader_)(data_file_name, &data)) return false;
@@ -64,29 +110,28 @@ bool TessdataManager::Init(const char *data_file_name) {
 // Loads from the given memory buffer as if a file.
 bool TessdataManager::LoadMemBuffer(const char *name, const char *data,
                                     int size) {
+  // TODO: This method supports only the proprietary file format.
   Clear();
   data_file_name_ = name;
   TFile fp;
   fp.Open(data, size);
-  int32_t num_entries = TESSDATA_NUM_ENTRIES;
-  if (fp.FRead(&num_entries, sizeof(num_entries), 1) != 1) return false;
-  swap_ = num_entries > kMaxNumTessdataEntries || num_entries < 0;
+  uint32_t num_entries;
+  if (!fp.DeSerialize(&num_entries)) return false;
+  swap_ = num_entries > kMaxNumTessdataEntries;
   fp.set_swap(swap_);
   if (swap_) ReverseN(&num_entries, sizeof(num_entries));
-  if (num_entries > kMaxNumTessdataEntries || num_entries < 0) return false;
+  if (num_entries > kMaxNumTessdataEntries) return false;
   GenericVector<int64_t> offset_table;
   offset_table.resize_no_init(num_entries);
-  if (fp.FReadEndian(&offset_table[0], sizeof(offset_table[0]), num_entries) !=
-      num_entries)
-    return false;
-  for (int i = 0; i < num_entries && i < TESSDATA_NUM_ENTRIES; ++i) {
+  if (!fp.DeSerialize(&offset_table[0], num_entries)) return false;
+  for (unsigned i = 0; i < num_entries && i < TESSDATA_NUM_ENTRIES; ++i) {
     if (offset_table[i] >= 0) {
       int64_t entry_size = size - offset_table[i];
-      int j = i + 1;
+      unsigned j = i + 1;
       while (j < num_entries && offset_table[j] == -1) ++j;
       if (j < num_entries) entry_size = offset_table[j] - offset_table[i];
       entries_[i].resize_no_init(entry_size);
-      if (fp.FRead(&entries_[i][0], 1, entry_size) != entry_size) return false;
+      if (!fp.DeSerialize(&entries_[i][0], entry_size)) return false;
     }
   }
   if (entries_[TESSDATA_VERSION].empty()) {
@@ -107,6 +152,7 @@ void TessdataManager::OverwriteEntry(TessdataType type, const char *data,
 // Saves to the given filename.
 bool TessdataManager::SaveFile(const STRING &filename,
                                FileWriter writer) const {
+  // TODO: This method supports only the proprietary file format.
   ASSERT_HOST(is_loaded_);
   GenericVector<char> data;
   Serialize(&data);
@@ -118,11 +164,12 @@ bool TessdataManager::SaveFile(const STRING &filename,
 
 // Serializes to the given vector.
 void TessdataManager::Serialize(GenericVector<char> *data) const {
+  // TODO: This method supports only the proprietary file format.
   ASSERT_HOST(is_loaded_);
   // Compute the offset_table and total size.
   int64_t offset_table[TESSDATA_NUM_ENTRIES];
   int64_t offset = sizeof(int32_t) + sizeof(offset_table);
-  for (int i = 0; i < TESSDATA_NUM_ENTRIES; ++i) {
+  for (unsigned i = 0; i < TESSDATA_NUM_ENTRIES; ++i) {
     if (entries_[i].empty()) {
       offset_table[i] = -1;
     } else {
@@ -134,18 +181,18 @@ void TessdataManager::Serialize(GenericVector<char> *data) const {
   int32_t num_entries = TESSDATA_NUM_ENTRIES;
   TFile fp;
   fp.OpenWrite(data);
-  fp.FWrite(&num_entries, sizeof(num_entries), 1);
-  fp.FWrite(offset_table, sizeof(offset_table), 1);
-  for (int i = 0; i < TESSDATA_NUM_ENTRIES; ++i) {
+  fp.Serialize(&num_entries);
+  fp.Serialize(&offset_table[0], countof(offset_table));
+  for (unsigned i = 0; i < TESSDATA_NUM_ENTRIES; ++i) {
     if (!entries_[i].empty()) {
-      fp.FWrite(&entries_[i][0], entries_[i].size(), 1);
+      fp.Serialize(&entries_[i][0], entries_[i].size());
     }
   }
 }
 
 // Resets to the initial state, keeping the reader.
 void TessdataManager::Clear() {
-  for (int i = 0; i < TESSDATA_NUM_ENTRIES; ++i) {
+  for (unsigned i = 0; i < TESSDATA_NUM_ENTRIES; ++i) {
     entries_[i].clear();
   }
   is_loaded_ = false;
@@ -155,7 +202,7 @@ void TessdataManager::Clear() {
 void TessdataManager::Directory() const {
   tprintf("Version string:%s\n", VersionString().c_str());
   int offset = TESSDATA_NUM_ENTRIES * sizeof(int64_t);
-  for (int i = 0; i < TESSDATA_NUM_ENTRIES; ++i) {
+  for (unsigned i = 0; i < TESSDATA_NUM_ENTRIES; ++i) {
     if (!entries_[i].empty()) {
       tprintf("%d:%s:size=%d, offset=%d\n", i, kTessdataFileSuffixes[i],
               entries_[i].size(), offset);
@@ -198,7 +245,7 @@ bool TessdataManager::CombineDataFiles(
     const char *language_data_path_prefix,
     const char *output_filename) {
   // Load individual tessdata components from files.
-  for (int i = 0; i < TESSDATA_NUM_ENTRIES; ++i) {
+  for (unsigned i = 0; i < TESSDATA_NUM_ENTRIES; ++i) {
     TessdataType type;
     ASSERT_HOST(TessdataTypeFromFileSuffix(kTessdataFileSuffixes[i], &type));
     STRING filename = language_data_path_prefix;
@@ -230,6 +277,7 @@ bool TessdataManager::OverwriteComponents(
     char **component_filenames,
     int num_new_components) {
   // Open the files with the new components.
+  // TODO: This method supports only the proprietary file format.
   for (int i = 0; i < num_new_components; ++i) {
     TessdataType type;
     if (TessdataTypeFromFileName(component_filenames[i], &type)) {
@@ -254,14 +302,16 @@ bool TessdataManager::ExtractToFile(const char *filename) {
 
 bool TessdataManager::TessdataTypeFromFileSuffix(const char *suffix,
                                                  TessdataType *type) {
-  for (int i = 0; i < TESSDATA_NUM_ENTRIES; ++i) {
+  for (unsigned i = 0; i < TESSDATA_NUM_ENTRIES; ++i) {
     if (strcmp(kTessdataFileSuffixes[i], suffix) == 0) {
       *type = static_cast<TessdataType>(i);
       return true;
     }
   }
+#if defined(DEBUG)
   tprintf("TessdataManager can't determine which tessdata"
          " component is represented by %s\n", suffix);
+#endif
   return false;
 }
 

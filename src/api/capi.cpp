@@ -44,10 +44,12 @@ TESS_API void TESS_CALL TessDeleteIntArray(int* arr)
     delete [] arr;
 }
 
+#ifndef DISABLED_LEGACY_ENGINE
 TESS_API void TESS_CALL TessDeleteBlockList(BLOCK_LIST* block_list)
 {
     TessBaseAPI::DeleteBlockList(block_list);
 }
+#endif
 
 TESS_API TessResultRenderer* TESS_CALL TessTextRendererCreate(const char* outputbase)
 {
@@ -64,6 +66,16 @@ TESS_API TessResultRenderer* TESS_CALL TessHOcrRendererCreate2(const char* outpu
     return new TessHOcrRenderer(outputbase, font_info);
 }
 
+TESS_API TessResultRenderer* TESS_CALL TessAltoRendererCreate(const char* outputbase)
+{
+    return new TessAltoRenderer(outputbase);
+}
+
+TESS_API TessResultRenderer* TESS_CALL TessTsvRendererCreate(const char* outputbase)
+{
+    return new TessTsvRenderer(outputbase);
+}
+
 TESS_API TessResultRenderer* TESS_CALL TessPDFRendererCreate(const char* outputbase, const char* datadir,
                                                              BOOL textonly)
 {
@@ -78,6 +90,16 @@ TESS_API TessResultRenderer* TESS_CALL TessUnlvRendererCreate(const char* output
 TESS_API TessResultRenderer* TESS_CALL TessBoxTextRendererCreate(const char* outputbase)
 {
     return new TessBoxTextRenderer(outputbase);
+}
+
+TESS_API TessResultRenderer* TESS_CALL TessWordStrBoxRendererCreate(const char* outputbase)
+{
+    return new TessWordStrBoxRenderer(outputbase);
+}
+
+TESS_API TessResultRenderer* TESS_CALL TessLSTMBoxRendererCreate(const char* outputbase)
+{
+    return new TessLSTMBoxRenderer(outputbase);
 }
 
 TESS_API void TESS_CALL TessDeleteResultRenderer(TessResultRenderer* renderer)
@@ -182,7 +204,7 @@ TESS_API BOOL TESS_CALL TessBaseAPISetVariable(TessBaseAPI* handle, const char* 
 
 TESS_API BOOL TESS_CALL TessBaseAPISetDebugVariable(TessBaseAPI* handle, const char* name, const char* value)
 {
-    return handle->SetVariable(name, value) ? TRUE : FALSE;
+    return handle->SetDebugVariable(name, value) ? TRUE : FALSE;
 }
 
 TESS_API BOOL TESS_CALL TessBaseAPIGetIntVariable(const TessBaseAPI* handle, const char* name, int* value)
@@ -297,10 +319,12 @@ TESS_API char** TESS_CALL TessBaseAPIGetAvailableLanguagesAsVector(const TessBas
     return arr;
 }
 
+#ifndef DISABLED_LEGACY_ENGINE
 TESS_API int TESS_CALL TessBaseAPIInitLangMod(TessBaseAPI* handle, const char* datapath, const char* language)
 {
     return handle->InitLangMod(datapath, language);
 }
+#endif
 
 TESS_API void TESS_CALL TessBaseAPIInitForAnalysePage(TessBaseAPI* handle)
 {
@@ -334,10 +358,12 @@ TESS_API char* TESS_CALL TessBaseAPIRect(TessBaseAPI* handle, const unsigned cha
     return handle->TesseractRect(imagedata, bytes_per_pixel, bytes_per_line, left, top, width, height);
 }
 
+#ifndef DISABLED_LEGACY_ENGINE
 TESS_API void TESS_CALL TessBaseAPIClearAdaptiveClassifier(TessBaseAPI* handle)
 {
     handle->ClearAdaptiveClassifier();
 }
+#endif
 
 TESS_API void TESS_CALL TessBaseAPISetImage(TessBaseAPI* handle, const unsigned char* imagedata, int width, int height,
                                                   int bytes_per_pixel, int bytes_per_line)
@@ -407,9 +433,9 @@ TESS_API struct Boxa* TESS_CALL TessBaseAPIGetComponentImages(TessBaseAPI* handl
 }
 
 TESS_API struct Boxa*
-               TESS_CALL TessBaseAPIGetComponentImages1(   TessBaseAPI* handle, const TessPageIteratorLevel level, const BOOL text_only,
-                                                           const BOOL raw_image, const int raw_padding,
-                                                           struct Pixa** pixa, int** blockids, int** paraids)
+TESS_CALL TessBaseAPIGetComponentImages1(TessBaseAPI* handle, const TessPageIteratorLevel level, const BOOL text_only,
+                                         const BOOL raw_image, const int raw_padding,
+                                         struct Pixa** pixa, int** blockids, int** paraids)
 {
     return handle->GetComponentImages(level, text_only != FALSE, raw_image, raw_padding, pixa, blockids, paraids);
 }
@@ -429,10 +455,12 @@ TESS_API int TESS_CALL TessBaseAPIRecognize(TessBaseAPI* handle, ETEXT_DESC* mon
     return handle->Recognize(monitor);
 }
 
+#ifndef DISABLED_LEGACY_ENGINE
 TESS_API int TESS_CALL TessBaseAPIRecognizeForChopTest(TessBaseAPI* handle, ETEXT_DESC* monitor)
 {
     return handle->RecognizeForChopTest(monitor);
 }
+#endif
 
 TESS_API BOOL TESS_CALL TessBaseAPIProcessPages(TessBaseAPI* handle, const char* filename, const char* retry_config,
                                                 int timeout_millisec, TessResultRenderer* renderer)
@@ -472,9 +500,29 @@ TESS_API char* TESS_CALL TessBaseAPIGetHOCRText(TessBaseAPI* handle, int page_nu
     return handle->GetHOCRText(nullptr, page_number);
 }
 
+TESS_API char* TESS_CALL TessBaseAPIGetAltoText(TessBaseAPI* handle, int page_number)
+{
+    return handle->GetAltoText(page_number);
+}
+
+TESS_API char* TESS_CALL TessBaseAPIGetTSVText(TessBaseAPI* handle, int page_number)
+{
+    return handle->GetTSVText(page_number);
+}
+
 TESS_API char* TESS_CALL TessBaseAPIGetBoxText(TessBaseAPI* handle, int page_number)
 {
     return handle->GetBoxText(page_number);
+}
+
+TESS_API char* TESS_CALL TessBaseAPIGetWordStrBoxText(TessBaseAPI* handle, int page_number)
+{
+    return handle->GetWordStrBoxText(page_number);
+}
+
+TESS_API char* TESS_CALL TessBaseAPIGetLSTMBoxText(TessBaseAPI* handle, int page_number)
+{
+    return handle->GetLSTMBoxText(page_number);
 }
 
 TESS_API char* TESS_CALL TessBaseAPIGetUNLVText(TessBaseAPI* handle)
@@ -492,10 +540,12 @@ TESS_API int* TESS_CALL TessBaseAPIAllWordConfidences(TessBaseAPI* handle)
     return handle->AllWordConfidences();
 }
 
+#ifndef DISABLED_LEGACY_ENGINE
 TESS_API BOOL TESS_CALL TessBaseAPIAdaptToWordStr(TessBaseAPI* handle, TessPageSegMode mode, const char* wordstr)
 {
     return handle->AdaptToWordStr(mode, wordstr) ? TRUE : FALSE;
 }
+#endif
 
 TESS_API void TESS_CALL TessBaseAPIClear(TessBaseAPI* handle)
 {
@@ -532,10 +582,7 @@ TESS_API void TESS_CALL TessBaseAPISetProbabilityInContextFunc(TessBaseAPI* hand
     handle->SetProbabilityInContextFunc(f);
 }
 
-TESS_API BOOL TESS_CALL TessBaseAPIDetectOS(TessBaseAPI* handle, OSResults* results)
-{
-    return FALSE; // Unsafe ABI, return FALSE always
-}
+#ifndef DISABLED_LEGACY_ENGINE
 
 TESS_API BOOL TESS_CALL TessBaseAPIDetectOrientationScript(TessBaseAPI* handle,
                                                             int* orient_deg, float* orient_conf, const char** script_name, float* script_conf)
@@ -544,7 +591,6 @@ TESS_API BOOL TESS_CALL TessBaseAPIDetectOrientationScript(TessBaseAPI* handle,
     success = handle->DetectOrientationScript(orient_deg, orient_conf, script_name, script_conf);
     return (BOOL)success;
 }
-
 
 TESS_API void TESS_CALL TessBaseAPIGetFeaturesForBlob(TessBaseAPI* handle, TBLOB* blob, INT_FEATURE_STRUCT* int_features,
                                                             int* num_features, int* FeatureOutlineIndex)
@@ -563,6 +609,8 @@ TESS_API void TESS_CALL TessBaseAPIRunAdaptiveClassifier(TessBaseAPI* handle, TB
     handle->RunAdaptiveClassifier(blob, num_max_matches, unichar_ids, ratings, num_matches_returned);
 }
 
+#endif  // ndef DISABLED_LEGACY_ENGINE
+
 TESS_API const char* TESS_CALL TessBaseAPIGetUnichar(TessBaseAPI* handle, int unichar_id)
 {
     return handle->GetUnichar(unichar_id);
@@ -578,6 +626,7 @@ TESS_API int TESS_CALL TessBaseAPINumDawgs(const TessBaseAPI* handle)
     return handle->NumDawgs();
 }
 
+#ifndef DISABLED_LEGACY_ENGINE
 TESS_API ROW* TESS_CALL TessMakeTessOCRRow(float baseline, float xheight, float descender, float ascender)
 {
     return TessBaseAPI::MakeTessOCRRow(baseline, xheight, descender, ascender);
@@ -592,6 +641,7 @@ TESS_API void TESS_CALL TessNormalizeTBLOB(TBLOB* tblob, ROW* row, BOOL numeric_
 {
     TessBaseAPI::NormalizeTBLOB(tblob, row, numeric_mode != FALSE);
 }
+#endif  // ndef DISABLED_LEGACY_ENGINE
 
 TESS_API TessOcrEngineMode TESS_CALL TessBaseAPIOem(const TessBaseAPI* handle)
 {
@@ -613,10 +663,12 @@ TESS_API void TESS_CALL TessBaseGetBlockTextOrientations(TessBaseAPI* handle, in
     handle->GetBlockTextOrientations(block_orientation, vertical_writing);
 }
 
+#ifndef DISABLED_LEGACY_ENGINE
 TESS_API BLOCK_LIST* TESS_CALL TessBaseAPIFindLinesCreateBlockList(TessBaseAPI* handle)
 {
     return handle->FindLinesCreateBlockList();
 }
+#endif
 
 TESS_API void  TESS_CALL TessPageIteratorDelete(TessPageIterator* handle)
 {
@@ -806,4 +858,44 @@ TESS_API const char* TESS_CALL TessChoiceIteratorGetUTF8Text(const TessChoiceIte
 TESS_API float TESS_CALL TessChoiceIteratorConfidence(const TessChoiceIterator* handle)
 {
     return handle->Confidence();
+}
+
+TESS_API ETEXT_DESC* TESS_CALL TessMonitorCreate()
+{
+    return new ETEXT_DESC();
+}
+
+TESS_API void TESS_CALL TessMonitorDelete(ETEXT_DESC* monitor)
+{
+    delete monitor;
+}
+
+TESS_API void TESS_CALL TessMonitorSetCancelFunc(ETEXT_DESC* monitor, TessCancelFunc cancelFunc)
+{
+    monitor->cancel = cancelFunc;
+}
+
+TESS_API void TESS_CALL TessMonitorSetCancelThis(ETEXT_DESC* monitor, void* cancelThis)
+{
+    monitor->cancel_this = cancelThis;
+}
+
+TESS_API void* TESS_CALL TessMonitorGetCancelThis(ETEXT_DESC* monitor)
+{
+    return monitor->cancel_this;
+}
+
+TESS_API void TESS_CALL TessMonitorSetProgressFunc(ETEXT_DESC* monitor, TessProgressFunc progressFunc)
+{
+    monitor->progress_callback2 = progressFunc;
+}
+
+TESS_API int TESS_CALL TessMonitorGetProgress(ETEXT_DESC* monitor)
+{
+    return monitor->progress;
+}
+
+TESS_API void TESS_CALL TessMonitorSetDeadlineMSecs(ETEXT_DESC* monitor, int deadline)
+{
+    monitor->set_deadline_msecs(deadline);
 }

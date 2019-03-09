@@ -2,7 +2,6 @@
 // File:        baseapi.h
 // Description: Simple API for calling tesseract.
 // Author:      Ray Smith
-// Created:     Fri Oct 06 15:35:01 PDT 2006
 //
 // (C) Copyright 2006, Google Inc.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,7 +19,7 @@
 #ifndef TESSERACT_API_BASEAPI_H_
 #define TESSERACT_API_BASEAPI_H_
 
-#include <stdio.h>
+#include <cstdio>
 // To avoid collision with other typenames include the ABSOLUTE MINIMUM
 // complexity of includes here. Use forward declarations wherever possible
 // and hide includes of complex types in baseapi.cpp.
@@ -75,6 +74,7 @@ class Trie;
 class Wordrec;
 
 typedef int (Dict::*DictFunc)(void* void_dawg_args,
+                              const UNICHARSET& unicharset,
                               UNICHAR_ID unichar_id, bool word_end) const;
 typedef double (Dict::*ProbabilityInContextFunc)(const char* lang,
                                                  const char* context,
@@ -260,7 +260,7 @@ class TESS_API TessBaseAPI {
   void GetLoadedLanguagesAsVector(GenericVector<STRING>* langs) const;
 
   /**
-   * Returns the available languages in the vector of STRINGs.
+   * Returns the available languages in the sorted vector of STRINGs.
    */
   void GetAvailableLanguagesAsVector(GenericVector<STRING>* langs) const;
 
@@ -503,8 +503,10 @@ class TESS_API TessBaseAPI {
    * Recognize() or TesseractRect(). (Recognize is called implicitly if needed.)
    */
 
+  #ifndef DISABLED_LEGACY_ENGINE
   /** Variant on Recognize used for testing chopper. */
   int RecognizeForChopTest(ETEXT_DESC* monitor);
+  #endif
 
   /**
    * Turns images into symbolic text.
@@ -593,11 +595,32 @@ class TESS_API TessBaseAPI {
   char* GetHOCRText(int page_number);
 
   /**
+   * Make an XML-formatted string with Alto markup from the internal
+   * data structures.
+   */
+  char* GetAltoText(ETEXT_DESC* monitor, int page_number);
+
+
+  /**
+   * Make an XML-formatted string with Alto markup from the internal
+   * data structures.
+   */
+  char* GetAltoText(int page_number);
+
+  /**
    * Make a TSV-formatted string from the internal data structures.
    * page_number is 0-based but will appear in the output as 1-based.
    * Returned string must be freed with the delete [] operator.
    */
   char* GetTSVText(int page_number);
+
+  /**
+   * Make a box file for LSTM training from the internal data structures.
+   * Constructs coordinates in the original image - not just the rectangle.
+   * page_number is a 0-based page index that will appear in the box file.
+   * Returned string must be freed with the delete [] operator.
+   */
+  char* GetLSTMBoxText(int page_number);
 
   /**
    * The recognized text is returned as a char* which is coded in the same
@@ -607,6 +630,14 @@ class TESS_API TessBaseAPI {
    * Returned string must be freed with the delete [] operator.
    */
   char* GetBoxText(int page_number);
+
+  /**
+   * The recognized text is returned as a char* which is coded in the same
+   * format as a WordStr box file used in training.
+   * page_number is a 0-based page index that will appear in the box file.
+   * Returned string must be freed with the delete [] operator.
+   */
+  char* GetWordStrBoxText(int page_number);
 
   /**
    * The recognized text is returned as a char* which is coded
@@ -644,6 +675,7 @@ class TESS_API TessBaseAPI {
    */
   int* AllWordConfidences();
 
+#ifndef DISABLED_LEGACY_ENGINE
   /**
    * Applies the given word to the adaptive classifier if possible.
    * The word must be SPACE-DELIMITED UTF-8 - l i k e t h i s , so it can
@@ -655,6 +687,7 @@ class TESS_API TessBaseAPI {
    * Returns false if adaption was not possible for some reason.
    */
   bool AdaptToWordStr(PageSegMode mode, const char* wordstr);
+#endif  //  ndef DISABLED_LEGACY_ENGINE
 
   /**
    * Free up recognition results and any stored image data, without actually
@@ -702,14 +735,48 @@ class TESS_API TessBaseAPI {
    */
   void SetProbabilityInContextFunc(ProbabilityInContextFunc f);
 
-  /** Sets Wordrec::fill_lattice_ function to point to the given function. */
-  void SetFillLatticeFunc(FillLatticeFunc f);
-
   /**
    * Estimates the Orientation And Script of the image.
    * @return true if the image was processed successfully.
    */
   bool DetectOS(OSResults*);
+
+  /**
+   * Return text orientation of each block as determined by an earlier run
+   * of layout analysis.
+   */
+  void GetBlockTextOrientations(int** block_orientation,
+                                bool** vertical_writing);
+
+
+  #ifndef DISABLED_LEGACY_ENGINE
+
+  /** Sets Wordrec::fill_lattice_ function to point to the given function. */
+  void SetFillLatticeFunc(FillLatticeFunc f);
+
+  /** Find lines from the image making the BLOCK_LIST. */
+  BLOCK_LIST* FindLinesCreateBlockList();
+
+  /**
+   * Delete a block list.
+   * This is to keep BLOCK_LIST pointer opaque
+   * and let go of including the other headers.
+   */
+  static void DeleteBlockList(BLOCK_LIST* block_list);
+
+  /** Returns a ROW object created from the input row specification. */
+  static ROW *MakeTessOCRRow(float baseline, float xheight,
+                             float descender, float ascender);
+
+  /** Returns a TBLOB corresponding to the entire input image. */
+  static TBLOB *MakeTBLOB(Pix *pix);
+
+  /**
+   * This method baseline normalizes a TBLOB in-place. The input row is used
+   * for normalization. The denorm is an optional parameter in which the
+   * normalization-antidote is returned.
+   */
+  static void NormalizeTBLOB(TBLOB *tblob, ROW *row, bool numeric_mode);
 
   /** This method returns the features associated with the input image. */
   void GetFeaturesForBlob(TBLOB* blob, INT_FEATURE_STRUCT* int_features,
@@ -731,6 +798,7 @@ class TESS_API TessBaseAPI {
                              int* unichar_ids,
                              float* ratings,
                              int* num_matches_returned);
+#endif  // ndef DISABLED_LEGACY_ENGINE
 
   /** This method returns the string form of the specified unichar. */
   const char* GetUnichar(int unichar_id);
@@ -741,20 +809,6 @@ class TESS_API TessBaseAPI {
   /** Return the number of dawgs loaded into tesseract_ object. */
   int NumDawgs() const;
 
-  /** Returns a ROW object created from the input row specification. */
-  static ROW *MakeTessOCRRow(float baseline, float xheight,
-                             float descender, float ascender);
-
-  /** Returns a TBLOB corresponding to the entire input image. */
-  static TBLOB *MakeTBLOB(Pix *pix);
-
-  /**
-   * This method baseline normalizes a TBLOB in-place. The input row is used
-   * for normalization. The denorm is an optional parameter in which the
-   * normalization-antidote is returned.
-   */
-  static void NormalizeTBLOB(TBLOB *tblob, ROW *row, bool numeric_mode);
-
   Tesseract* tesseract() const { return tesseract_; }
 
   OcrEngineMode oem() const { return last_oem_requested_; }
@@ -762,23 +816,6 @@ class TESS_API TessBaseAPI {
   void InitTruthCallback(TruthCallback *cb) { truth_cb_ = cb; }
 
   void set_min_orientation_margin(double margin);
-
-  /**
-   * Return text orientation of each block as determined by an earlier run
-   * of layout analysis.
-   */
-  void GetBlockTextOrientations(int** block_orientation,
-                                bool** vertical_writing);
-
-  /** Find lines from the image making the BLOCK_LIST. */
-  BLOCK_LIST* FindLinesCreateBlockList();
-
-  /**
-   * Delete a block list.
-   * This is to keep BLOCK_LIST pointer opaque
-   * and let go of including the other headers.
-   */
-  static void DeleteBlockList(BLOCK_LIST* block_list);
  /* @} */
 
  protected:
@@ -816,6 +853,11 @@ class TESS_API TessBaseAPI {
    */
   TESS_LOCAL int TextLength(int* blob_count);
 
+  //// paragraphs.cpp ////////////////////////////////////////////////////
+  TESS_LOCAL void DetectParagraphs(bool after_text_recognition);
+
+  #ifndef DISABLED_LEGACY_ENGINE
+
   /** @defgroup ocropusAddOns ocropus add-ons */
   /* @{ */
 
@@ -832,11 +874,9 @@ class TESS_API TessBaseAPI {
 
   /** Recognize text doing one pass only, using settings for a given pass. */
   TESS_LOCAL PAGE_RES* RecognitionPass1(BLOCK_LIST* block_list);
+
   TESS_LOCAL PAGE_RES* RecognitionPass2(BLOCK_LIST* block_list,
                                         PAGE_RES* pass1_result);
-
-  //// paragraphs.cpp ////////////////////////////////////////////////////
-  TESS_LOCAL void DetectParagraphs(bool after_text_recognition);
 
   /**
    * Extract the OCR results, costs (penalty points for uncertainty),
@@ -853,7 +893,7 @@ class TESS_API TessBaseAPI {
 
   TESS_LOCAL const PAGE_RES* GetPageRes() const { return page_res_; }
   /* @} */
-
+#endif  // ndef DISABLED_LEGACY_ENGINE
 
  protected:
   Tesseract*        tesseract_;       ///< The underlying data object.

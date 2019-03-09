@@ -1,8 +1,8 @@
 /**********************************************************************
- * File:	word.h
+ * File:        werd.h
  * Description: Code for the WERD class.
- * Author:	Ray Smith
- * Created:	Tue Oct 08 14:32:12 BST 1991
+ * Author:      Ray Smith
+ * Created:     Tue Oct 08 14:32:12 BST 1991
  *
  * (C) Copyright 1991, Hewlett-Packard Ltd.
  ** Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,49 +17,48 @@
  *
  **********************************************************************/
 
-#ifndef           WERD_H
-#define           WERD_H
+#ifndef WERD_H
+#define WERD_H
 
-#include          "params.h"
-#include          "bits16.h"
-#include          "elst2.h"
-#include          "strngs.h"
-#include          "blckerr.h"
-#include          "stepblob.h"
+#include "params.h"
+#include "bits16.h"
+#include "elst2.h"
+#include "strngs.h"
+#include "stepblob.h"
 
 enum WERD_FLAGS
 {
-  W_SEGMENTED,                   //< correctly segmented
-  W_ITALIC,                      //< italic text
-  W_BOLD,                        //< bold text
-  W_BOL,                         //< start of line
-  W_EOL,                         //< end of line
-  W_NORMALIZED,                  //< flags
-  W_SCRIPT_HAS_XHEIGHT,          //< x-height concept makes sense.
-  W_SCRIPT_IS_LATIN,             //< Special case latin for y. splitting.
-  W_DONT_CHOP,                   //< fixed pitch chopped
-  W_REP_CHAR,                    //< repeated character
-  W_FUZZY_SP,                    //< fuzzy space
-  W_FUZZY_NON,                   //< fuzzy nonspace
-  W_INVERSE                      //< white on black
+  W_SEGMENTED,                   ///< correctly segmented
+  W_ITALIC,                      ///< italic text
+  W_BOLD,                        ///< bold text
+  W_BOL,                         ///< start of line
+  W_EOL,                         ///< end of line
+  W_NORMALIZED,                  ///< flags
+  W_SCRIPT_HAS_XHEIGHT,          ///< x-height concept makes sense.
+  W_SCRIPT_IS_LATIN,             ///< Special case latin for y. splitting.
+  W_DONT_CHOP,                   ///< fixed pitch chopped
+  W_REP_CHAR,                    ///< repeated character
+  W_FUZZY_SP,                    ///< fuzzy space
+  W_FUZZY_NON,                   ///< fuzzy nonspace
+  W_INVERSE                      ///< white on black
 };
 
 enum DISPLAY_FLAGS
 {
   /* Display flags bit number allocations */
-  DF_BOX,                        //< Bounding box
-  DF_TEXT,                       //< Correct ascii
-  DF_POLYGONAL,                  //< Polyg approx
-  DF_EDGE_STEP,                  //< Edge steps
-  DF_BN_POLYGONAL,               //< BL normalisd polyapx
-  DF_BLAMER                      //< Blamer information
+  DF_BOX,                        ///< Bounding box
+  DF_TEXT,                       ///< Correct ascii
+  DF_POLYGONAL,                  ///< Polyg approx
+  DF_EDGE_STEP,                  ///< Edge steps
+  DF_BN_POLYGONAL,               ///< BL normalisd polyapx
+  DF_BLAMER                      ///< Blamer information
 };
 
 class ROW;                       //forward decl
 
 class WERD : public ELIST2_LINK {
   public:
-    WERD() {}
+    WERD() = default;
     // WERD constructed with:
     //   blob_list - blobs of the word (we take this list's contents)
     //   blanks - number of blanks before the word
@@ -75,8 +74,7 @@ class WERD : public ELIST2_LINK {
     // W_BOL and W_EOL flags are set according to the given values.
     WERD* ConstructFromSingleBlob(bool bol, bool eol, C_BLOB* blob);
 
-    ~WERD() {
-    }
+    ~WERD() = default;
 
     // assignment
     WERD & operator= (const WERD &source);
@@ -125,11 +123,11 @@ class WERD : public ELIST2_LINK {
     const char *text() const { return correct.string(); }
     void set_text(const char *new_text) { correct = new_text; }
 
-    BOOL8 flag(WERD_FLAGS mask) const { return flags.bit(mask); }
-    void set_flag(WERD_FLAGS mask, BOOL8 value) { flags.set_bit(mask, value); }
+    bool flag(WERD_FLAGS mask) const { return flags.bit(mask); }
+    void set_flag(WERD_FLAGS mask, bool value) { flags.set_bit(mask, value); }
 
-    BOOL8 display_flag(uint8_t flag) const { return disp_flags.bit(flag); }
-    void set_display_flag(uint8_t flag, BOOL8 value) {
+    bool display_flag(uint8_t flag) const { return disp_flags.bit(flag); }
+    void set_display_flag(uint8_t flag, bool value) {
       disp_flags.set_bit(flag, value);
     }
 

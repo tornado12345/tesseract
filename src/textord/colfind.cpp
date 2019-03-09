@@ -3,7 +3,6 @@
 // Description: Class to hold BLOBNBOXs in a grid for fast access
 //              to neighbours.
 // Author:      Ray Smith
-// Created:     Wed Jun 06 17:22:01 PDT 2007
 //
 // (C) Copyright 2007, Google Inc.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -37,6 +36,8 @@
 #include "tablefind.h"
 #include "params.h"
 #include "workingpartset.h"
+
+#include <algorithm>
 
 namespace tesseract {
 
@@ -82,7 +83,9 @@ ColumnFinder::ColumnFinder(int gridsize,
     min_gutter_width_(static_cast<int>(kMinGutterWidthGrid * gridsize)),
     mean_column_gap_(tright.x() - bleft.x()),
     tabfind_aligned_gap_fraction_(aligned_gap_fraction),
+    deskew_(0.0f, 0.0f),
     reskew_(1.0f, 0.0f), rotation_(1.0f, 0.0f), rerotate_(1.0f, 0.0f),
+    text_rotation_(0.0f, 0.0f),
     best_columns_(nullptr), stroke_width_(nullptr),
     part_grid_(gridsize, bleft, tright), nontext_map_(nullptr),
     projection_(resolution),
@@ -274,7 +277,7 @@ void ColumnFinder::CorrectOrientation(TO_BLOCK* block,
 // can be an integer factor reduction of the grey_pix. It represents the
 // thresholds that were used to create the binary_pix from the grey_pix.
 // If diacritic_blobs is non-null, then diacritics/noise blobs, that would
-// confuse layout anaylsis by causing textline overlap, are placed there,
+// confuse layout analysis by causing textline overlap, are placed there,
 // with the expectation that they will be reassigned to words later and
 // noise/diacriticness determined via classification.
 // Returns -1 if the user hits the 'd' key in the blocks window while running
@@ -922,7 +925,8 @@ void ColumnFinder::ComputeMeanColumnGap(bool any_multi_column) {
                                                     &gap_samples);
   }
   mean_column_gap_ = any_multi_column && gap_samples > 0
-      ? total_gap / gap_samples : total_width / width_samples;
+      ? total_gap / gap_samples : width_samples > 0
+      ? total_width / width_samples : 0;
 }
 
 //////// Functions that manipulate ColPartitions in the part_grid_ /////
@@ -1106,8 +1110,8 @@ void ColumnFinder::GridMergePartitions() {
         if (neighbour_box.right() < part->left_margin() &&
             part_box.left() > neighbour->right_margin())
           continue;  // Neighbour is too far to the left.
-        int h_gap = MAX(part_box.left(), neighbour_box.left()) -
-                    MIN(part_box.right(), neighbour_box.right());
+        int h_gap = std::max(part_box.left(), neighbour_box.left()) -
+                std::min(part_box.right(), neighbour_box.right());
         if (h_gap < mean_column_gap_ * kHorizontalGapMergeFraction ||
             part_box.width() < mean_column_gap_ ||
             neighbour_box.width() < mean_column_gap_) {
@@ -1172,12 +1176,12 @@ void ColumnFinder::InsertRemainingNoise(TO_BLOCK* block) {
       }
     }
     if (best_part != nullptr &&
-        best_distance < kMaxDistToPartSizeRatio * best_part->median_size()) {
+        best_distance < kMaxDistToPartSizeRatio * best_part->median_height()) {
       // Close enough to merge.
       if (debug) {
         tprintf("Adding noise blob with distance %d, thr=%g:box:",
                 best_distance,
-                kMaxDistToPartSizeRatio * best_part->median_size());
+                kMaxDistToPartSizeRatio * best_part->median_height());
         blob->bounding_box().print();
         tprintf("To partition:");
         best_part->Print();
@@ -1199,8 +1203,8 @@ void ColumnFinder::InsertRemainingNoise(TO_BLOCK* block) {
 
 // Helper makes a box from a horizontal line.
 static TBOX BoxFromHLine(const TabVector* hline) {
-  int top = MAX(hline->startpt().y(), hline->endpt().y());
-  int bottom = MIN(hline->startpt().y(), hline->endpt().y());
+  int top = std::max(hline->startpt().y(), hline->endpt().y());
+  int bottom = std::min(hline->startpt().y(), hline->endpt().y());
   top += hline->mean_width();
   if (top == bottom) {
     if (bottom > 0)
@@ -1285,8 +1289,8 @@ void ColumnFinder::GridInsertVLinePartitions() {
     TabVector* vline = vline_it.data();
     if (!vline->IsSeparator())
       continue;
-    int left = MIN(vline->startpt().x(), vline->endpt().x());
-    int right = MAX(vline->startpt().x(), vline->endpt().x());
+    int left = std::min(vline->startpt().x(), vline->endpt().x());
+    int right = std::max(vline->startpt().x(), vline->endpt().x());
     right += vline->mean_width();
     if (left == right) {
       if (left > 0)

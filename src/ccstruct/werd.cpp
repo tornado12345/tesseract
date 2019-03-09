@@ -17,7 +17,6 @@
  *
  **********************************************************************/
 
-#include "blckerr.h"
 #include "helpers.h"
 #include "linlsq.h"
 #include "werd.h"
@@ -27,9 +26,9 @@
 #include "config_auto.h"
 #endif
 
-#define FIRST_COLOUR    ScrollView::RED         //< first rainbow colour
-#define LAST_COLOUR     ScrollView::AQUAMARINE  //< last rainbow colour
-#define CHILD_COLOUR    ScrollView::BROWN       //< colour of children
+#define FIRST_COLOUR    ScrollView::RED         ///< first rainbow colour
+#define LAST_COLOUR     ScrollView::AQUAMARINE  ///< last rainbow colour
+#define CHILD_COLOUR    ScrollView::BROWN       ///< colour of children
 
 const ERRCODE CANT_SCALE_EDGESTEPS =
     "Attempted to scale an edgestep format word";
@@ -76,8 +75,8 @@ WERD::WERD(C_BLOB_LIST *blob_list, uint8_t blank_count, const char *text)
   if (start_it.empty())
     return;
   for (start_it.mark_cycle_pt(); !start_it.cycled_list(); start_it.forward()) {
-    BOOL8 reject_blob = FALSE;
-    BOOL8 blob_inverted;
+    bool reject_blob = false;
+    bool blob_inverted;
 
     c_outline_it.set_to_list(start_it.data()->out_list());
     blob_inverted = c_outline_it.data()->flag(COUT_INVERSE);
@@ -116,8 +115,8 @@ WERD::WERD(C_BLOB_LIST *blob_list, uint8_t blank_count, const char *text)
  * The C_BLOBs are not copied so the source list is emptied.
  */
 
-WERD::WERD(C_BLOB_LIST * blob_list,         //< In word order
-           WERD * clone)                    //< Source of flags
+WERD::WERD(C_BLOB_LIST * blob_list,         ///< In word order
+           WERD * clone)                    ///< Source of flags
   : flags(clone->flags),
     script_id_(clone->script_id_),
     correct(clone->correct) {
@@ -126,7 +125,7 @@ WERD::WERD(C_BLOB_LIST * blob_list,         //< In word order
 
   while (!end_it.at_last ())
     end_it.forward ();           //move to last
-  ((C_BLOB_LIST *) (&cblobs))->assign_to_sublist (&start_it, &end_it);
+  (reinterpret_cast<C_BLOB_LIST*>(&cblobs))->assign_to_sublist(&start_it, &end_it);
   //move to our list
   blanks = clone->blanks;
   //      fprintf(stderr,"Wrong constructor!!!!\n");
@@ -392,8 +391,8 @@ WERD & WERD::operator= (const WERD & source) {
  */
 
 int word_comparator(const void *word1p, const void *word2p) {
-  WERD *word1 = *(WERD **)word1p;
-  WERD *word2 = *(WERD **)word2p;
+  const WERD *word1 = *reinterpret_cast<const WERD* const*>(word1p);
+  const WERD *word2 = *reinterpret_cast<const WERD* const*>(word2p);
   return word1->bounding_box().left() - word2->bounding_box().left();
 }
 

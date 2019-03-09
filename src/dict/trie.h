@@ -26,7 +26,6 @@
 #define TRIE_H
 
 #include "dawg.h"
-#include "cutil.h"
 #include "genericvector.h"
 
 class UNICHARSET;
@@ -41,15 +40,15 @@ class UNICHARSET;
 // It might be cleanest to change the types of most of the Trie/Dawg related
 // typedefs to int and restrict the casts to extracting these values from
 // the 64 bit EDGE_RECORD.
-typedef int64_t EDGE_INDEX;  // index of an edge in a given node
-typedef bool *NODE_MARKER;
-typedef GenericVector<EDGE_RECORD> EDGE_VECTOR;
+using EDGE_INDEX = int64_t ;  // index of an edge in a given node
+using NODE_MARKER = bool *;
+using EDGE_VECTOR = GenericVector<EDGE_RECORD> ;
 
 struct TRIE_NODE_RECORD {
   EDGE_VECTOR forward_edges;
   EDGE_VECTOR backward_edges;
 };
-typedef GenericVector<TRIE_NODE_RECORD *> TRIE_NODES;
+using TRIE_NODES = GenericVector<TRIE_NODE_RECORD *> ;
 
 namespace tesseract {
 
@@ -402,7 +401,7 @@ class Trie : public Dawg {
                              NODE_MARKER reduced_nodes);
 
   /**
-   * Order num_edges of consequtive EDGE_RECORDS in the given EDGE_VECTOR in
+   * Order num_edges of consecutive EDGE_RECORDS in the given EDGE_VECTOR in
    * increasing order of unichar ids. This function is normally called
    * for all edges in a single node, and since number of edges in each node
    * is usually quite small, selection sort is used.

@@ -23,19 +23,19 @@
 #include "config_auto.h"
 #endif
 
-#include <ctype.h>
-#include <math.h>
-#include <stdarg.h>
-#include <stddef.h>
-#include <string.h>
-#include <limits.h>
-#include <stdio.h>
+#include <cctype>
+#include <cmath>
+#include <cstdarg>
+#include <cstddef>
+#include <cstring>
+#include <climits>
+#include <cstdio>
+#include <limits>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 
 #include "scanutils.h"
-#include "tprintf.h"
 
 enum Flags {
   FL_SPLAT  = 0x01,   // Drop the value, do not assign
@@ -50,7 +50,7 @@ enum Ranks {
   RANK_INT  = 0,
   RANK_LONG = 1,
   RANK_LONGLONG = 2,
-  RANK_PTR      = INT_MAX // Special value used for pointers
+  RANK_PTR      = std::numeric_limits<int>::max() // Special value used for pointers
 };
 
 const enum Ranks kMinRank = RANK_CHAR;
@@ -74,7 +74,7 @@ inline size_t LongBit() {
 static inline int
 SkipSpace(FILE *s) {
   int p;
-  while (isspace(p = fgetc(s)));
+  while (isascii(p = fgetc(s)) && isspace(p));
   ungetc(p, s);  // Make sure next char is available for reading
   return p;
 }
@@ -102,14 +102,12 @@ static inline int DigitValue(int ch, int base) {
 }
 
 // IO (re-)implementations -----------------------------------------------------
-uintmax_t streamtoumax(FILE* s, int base) {
+static uintmax_t streamtoumax(FILE* s, int base) {
   int minus = 0;
   uintmax_t v = 0;
   int d, c = 0;
 
-  for (c = fgetc(s);
-    isspace(static_cast<unsigned char>(c)) && (c != EOF);
-    c = fgetc(s)) {}
+  for (c = fgetc(s); isascii(c) && isspace(c); c = fgetc(s));
 
   // Single optional + or -
   if (c == '-' || c == '+') {
@@ -143,16 +141,14 @@ uintmax_t streamtoumax(FILE* s, int base) {
   return minus ? -v : v;
 }
 
-double streamtofloat(FILE* s) {
-  int minus = 0;
-  int v = 0;
-  int d, c = 0;
-  int k = 1;
-  int w = 0;
+static double streamtofloat(FILE* s) {
+  bool minus = false;
+  uint64_t v = 0;
+  int d, c;
+  uint64_t k = 1;
+  uint64_t w = 0;
 
-  for (c = fgetc(s);
-    isspace(static_cast<unsigned char>(c)) && (c != EOF);
-    c = fgetc(s));
+  for (c = fgetc(s); isascii(c) && isspace(c); c = fgetc(s));
 
   // Single optional + or -
   if (c == '-' || c == '+') {
@@ -169,8 +165,7 @@ double streamtofloat(FILE* s) {
       k *= 10;
     }
   }
-  double f  = static_cast<double>(v)
-            + static_cast<double>(w) / static_cast<double>(k);
+  double f = v + static_cast<double>(w) / k;
   if (c == 'e' || c == 'E') {
     c = fgetc(s);
     int expsign = 1;
@@ -186,39 +181,6 @@ double streamtofloat(FILE* s) {
     f *= pow(10.0, static_cast<double>(exponent));
   }
   ungetc(c, s);
-
-  return minus ? -f : f;
-}
-
-double strtofloat(const char* s) {
-  int minus = 0;
-  int v = 0;
-  int d;
-  int k = 1;
-  int w = 0;
-
-  while(*s && isspace(static_cast<unsigned char>(*s))) s++;
-
-  // Single optional + or -
-  if (*s == '-' || *s == '+') {
-    minus = (*s == '-');
-    s++;
-  }
-
-  // Actual number parsing
-  for (; *s && (d = DigitValue(*s, 10)) >= 0; s++)
-    v = v*10 + d;
-  if (*s == '.') {
-    for (++s; *s && (d = DigitValue(*s, 10)) >= 0; s++) {
-      w = w*10 + d;
-      k *= 10;
-    }
-  }
-  if (*s == 'e' || *s == 'E')
-    tprintf("WARNING: Scientific Notation not supported!");
-
-  double f  = static_cast<double>(v)
-            + static_cast<double>(w) / static_cast<double>(k);
 
   return minus ? -f : f;
 }
@@ -297,7 +259,7 @@ static int tvfscanf(FILE* stream, const char *format, va_list ap) {
         if (ch == '%') {
           state = ST_FLAGS;
           flags = 0; rank = RANK_INT; width = UINT_MAX;
-        } else if (isspace(static_cast<unsigned char>(ch))) {
+        } else if (isascii(ch) && isspace(ch)) {
           SkipSpace(stream);
         } else {
           if (fgetc(stream) != ch)
@@ -392,7 +354,7 @@ static int tvfscanf(FILE* stream, const char *format, va_list ap) {
 
             scan_int:
               q = SkipSpace(stream);
-              if ( q <= 0 ) {
+              if (q <= 0) {
                 bail = BAIL_EOF;
                 break;
               }
@@ -471,23 +433,26 @@ static int tvfscanf(FILE* stream, const char *format, va_list ap) {
 
             case 's':               // String
             {
-              char *sp;
-              sp = sarg = va_arg(ap, char *);
+              if (!(flags & FL_SPLAT)) {
+                sarg = va_arg(ap, char *);
+              }
+              unsigned length = 0;
               while (width--) {
                 q = fgetc(stream);
-                if (isspace(static_cast<unsigned char>(q)) || q <= 0) {
+                if ((isascii(q) && isspace(q)) || (q <= 0)) {
                   ungetc(q, stream);
                   break;
                 }
-                if (!(flags & FL_SPLAT)) *sp = q;
-                sp++;
+                if (!(flags & FL_SPLAT)) {
+                  sarg[length] = q;
+                }
+                length++;
               }
-              if (sarg == sp) {
+              if (length == 0) {
                 bail = BAIL_EOF;
               } else if (!(flags & FL_SPLAT)) {
-                *sp = '\0'; // Terminate output
+                sarg[length] = '\0'; // Terminate output
                 converted++;
-              } else {
               }
             }
             break;
@@ -500,7 +465,7 @@ static int tvfscanf(FILE* stream, const char *format, va_list ap) {
             break;
 
             case '%':   // %% sequence
-              if (fgetc(stream) != '%' )
+              if (fgetc(stream) != '%')
                 bail = BAIL_ERR;
             break;
 

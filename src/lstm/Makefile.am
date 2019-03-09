@@ -12,7 +12,7 @@ SUBDIRS =
 AM_CXXFLAGS = $(OPENMP_CXXFLAGS)
 
 if !NO_TESSDATA_PREFIX
-AM_CXXFLAGS += -DTESSDATA_PREFIX=@datadir@/
+AM_CXXFLAGS += -DTESSDATA_PREFIX=@datadir@
 endif
 
 if VISIBILITY
@@ -20,14 +20,15 @@ AM_CXXFLAGS += -fvisibility=hidden -fvisibility-inlines-hidden
 AM_CPPFLAGS += -DTESS_EXPORTS
 endif
 
-include_HEADERS = \
-        convolve.h ctc.h fullyconnected.h functions.h input.h \
-        lstm.h lstmrecognizer.h lstmtrainer.h maxpool.h \
-        networkbuilder.h network.h networkio.h networkscratch.h \
-        parallel.h plumbing.h recodebeam.h reconfig.h reversed.h \
-        series.h static_shape.h stridemap.h tfnetwork.h weightmatrix.h
+pkginclude_HEADERS =
 
-noinst_HEADERS = 
+noinst_HEADERS = convolve.h ctc.h
+noinst_HEADERS += fullyconnected.h functions.h input.h
+noinst_HEADERS += lstm.h lstmrecognizer.h lstmtrainer.h maxpool.h
+noinst_HEADERS += network.h networkbuilder.h networkio.h networkscratch.h
+noinst_HEADERS += parallel.h plumbing.h recodebeam.h reconfig.h reversed.h
+noinst_HEADERS += series.h static_shape.h stridemap.h
+noinst_HEADERS += tfnetwork.h weightmatrix.h
 
 noinst_LTLIBRARIES = libtesseract_lstm.la
 

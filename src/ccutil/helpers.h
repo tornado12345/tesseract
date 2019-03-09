@@ -26,8 +26,8 @@
 #define TESSERACT_CCUTIL_HELPERS_H_
 
 #include <cassert>
-#include <stdio.h>
-#include <string.h>
+#include <cstdio>
+#include <cstring>
 #include <functional>
 #include <string>
 
@@ -99,18 +99,6 @@ template<typename T> inline void Swap(T* p1, T* p2) {
   T tmp(*p2);
   *p2 = *p1;
   *p1 = tmp;
-}
-
-// qsort function to sort 2 floats.
-inline int sort_floats(const void *arg1, const void *arg2) {
-  float diff = *((float *) arg1) - *((float *) arg2);
-  if (diff > 0) {
-    return 1;
-  } else if (diff < 0) {
-    return -1;
-  } else {
-    return 0;
-  }
 }
 
 // return the smallest multiple of block_size greater than or equal to n.

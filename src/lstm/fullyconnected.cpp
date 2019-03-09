@@ -21,8 +21,8 @@
 #ifdef _OPENMP
 #include <omp.h>
 #endif
-#include <stdio.h>
-#include <stdlib.h>
+#include <cstdio>
+#include <cstdlib>
 
 #include "functions.h"
 #include "networkscratch.h"
@@ -39,9 +39,6 @@ namespace tesseract {
 FullyConnected::FullyConnected(const STRING& name, int ni, int no,
                                NetworkType type)
   : Network(type, name, ni, no), external_source_(nullptr), int_mode_(false) {
-}
-
-FullyConnected::~FullyConnected() {
 }
 
 // Returns the shape output from the network given an input shape (which may

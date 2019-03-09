@@ -20,9 +20,10 @@
 ///////////////////////////////////////////////////////////////////////
 
 #include "bitvector.h"
-#include <string.h>
+#include <algorithm>
+#include <cstring>
 #include "helpers.h"
-#include "ndminx.h"
+#include "serialis.h"   // for tesseract::Serialize
 
 namespace tesseract {
 
@@ -136,25 +137,22 @@ void BitVector::Init(int length) {
 
 // Writes to the given file. Returns false in case of error.
 bool BitVector::Serialize(FILE* fp) const {
-  if (fwrite(&bit_size_, sizeof(bit_size_), 1, fp) != 1) return false;
+  if (!tesseract::Serialize(fp, &bit_size_)) return false;
   int wordlen = WordLength();
-  if (static_cast<int>(fwrite(array_, sizeof(*array_), wordlen, fp)) != wordlen)
-      return false;
-  return true;
+  return tesseract::Serialize(fp, &array_[0], wordlen);
 }
 
 // Reads from the given file. Returns false in case of error.
 // If swap is true, assumes a big/little-endian swap is needed.
 bool BitVector::DeSerialize(bool swap, FILE* fp) {
   uint32_t new_bit_size;
-  if (fread(&new_bit_size, sizeof(new_bit_size), 1, fp) != 1) return false;
+  if (!tesseract::DeSerialize(fp, &new_bit_size)) return false;
   if (swap) {
     ReverseN(&new_bit_size, sizeof(new_bit_size));
   }
   Alloc(new_bit_size);
   int wordlen = WordLength();
-  if (static_cast<int>(fread(array_, sizeof(*array_), wordlen, fp)) != wordlen)
-      return false;
+  if (!tesseract::DeSerialize(fp, &array_[0], wordlen)) return false;
   if (swap) {
     for (int i = 0; i < wordlen; ++i)
       ReverseN(&array_[i], sizeof(array_[i]));
@@ -225,26 +223,26 @@ int BitVector::NumSetBits() const {
 // Logical in-place operations on whole bit vectors. Tries to do something
 // sensible if they aren't the same size, but they should be really.
 void BitVector::operator|=(const BitVector& other) {
-  int length = MIN(WordLength(), other.WordLength());
+  int length = std::min(WordLength(), other.WordLength());
   for (int w = 0; w < length; ++w)
     array_[w] |= other.array_[w];
 }
 void BitVector::operator&=(const BitVector& other) {
-  int length = MIN(WordLength(), other.WordLength());
+  int length = std::min(WordLength(), other.WordLength());
   for (int w = 0; w < length; ++w)
     array_[w] &= other.array_[w];
   for (int w = WordLength() - 1; w >= length; --w)
     array_[w] = 0;
 }
 void BitVector::operator^=(const BitVector& other) {
-  int length = MIN(WordLength(), other.WordLength());
+  int length = std::min(WordLength(), other.WordLength());
   for (int w = 0; w < length; ++w)
     array_[w] ^= other.array_[w];
 }
 // Set subtraction *this = v1 - v2.
 void BitVector::SetSubtract(const BitVector& v1, const BitVector& v2) {
   Alloc(v1.size());
-  int length = MIN(v1.WordLength(), v2.WordLength());
+  int length = std::min(v1.WordLength(), v2.WordLength());
   for (int w = 0; w < length; ++w)
     array_[w] = v1.array_[w] ^ (v1.array_[w] & v2.array_[w]);
   for (int w = WordLength() - 1; w >= length; --w)

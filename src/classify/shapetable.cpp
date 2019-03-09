@@ -29,6 +29,8 @@
 #include "unicharset.h"
 #include "unicity_table.h"
 
+#include <algorithm>
+
 namespace tesseract {
 
 // Helper function to get the index of the first result with the required
@@ -40,7 +42,7 @@ int ShapeRating::FirstResultWithUnichar(
     const ShapeTable& shape_table,
     UNICHAR_ID unichar_id) {
   for (int r = 0; r < results.size(); ++r) {
-    int shape_id = results[r].shape_id;
+    const int shape_id = results[r].shape_id;
     const Shape& shape = shape_table.GetShape(shape_id);
     if (shape.ContainsUnichar(unichar_id)) {
       return r;
@@ -65,16 +67,12 @@ int UnicharRating::FirstResultWithUnichar(
 
 // Writes to the given file. Returns false in case of error.
 bool UnicharAndFonts::Serialize(FILE* fp) const {
-  if (fwrite(&unichar_id, sizeof(unichar_id), 1, fp) != 1) return false;
-  if (!font_ids.Serialize(fp)) return false;
-  return true;
+  return tesseract::Serialize(fp, &unichar_id) && font_ids.Serialize(fp);
 }
 // Reads from the given file. Returns false in case of error.
 
 bool UnicharAndFonts::DeSerialize(TFile* fp) {
-  if (fp->FReadEndian(&unichar_id, sizeof(unichar_id), 1) != 1) return false;
-  if (!font_ids.DeSerialize(fp)) return false;
-  return true;
+  return fp->DeSerialize(&unichar_id) && font_ids.DeSerialize(fp);
 }
 
 // Sort function to sort a pair of UnicharAndFonts by unichar_id.
@@ -87,16 +85,13 @@ int UnicharAndFonts::SortByUnicharId(const void* v1, const void* v2) {
 // Writes to the given file. Returns false in case of error.
 bool Shape::Serialize(FILE* fp) const {
   uint8_t sorted = unichars_sorted_;
-  if (fwrite(&sorted, sizeof(sorted), 1, fp) != 1)
-    return false;
-  if (!unichars_.SerializeClasses(fp)) return false;
-  return true;
+  return tesseract::Serialize(fp, &sorted) && unichars_.SerializeClasses(fp);
 }
 // Reads from the given file. Returns false in case of error.
 
 bool Shape::DeSerialize(TFile* fp) {
   uint8_t sorted;
-  if (fp->FRead(&sorted, sizeof(sorted), 1) != 1) return false;
+  if (!fp->DeSerialize(&sorted)) return false;
   unichars_sorted_ = sorted != 0;
   return unichars_.DeSerializeClasses(fp);
 }
@@ -244,8 +239,7 @@ ShapeTable::ShapeTable(const UNICHARSET& unicharset)
 
 // Writes to the given file. Returns false in case of error.
 bool ShapeTable::Serialize(FILE* fp) const {
-  if (!shape_table_.Serialize(fp)) return false;
-  return true;
+  return shape_table_.Serialize(fp);
 }
 // Reads from the given file. Returns false in case of error.
 
@@ -344,7 +338,7 @@ int ShapeTable::AddShape(int unichar_id, int font_id) {
   Shape* shape = new Shape;
   shape->AddToShape(unichar_id, font_id);
   shape_table_.push_back(shape);
-  num_fonts_ = MAX(num_fonts_, font_id + 1);
+  num_fonts_ = std::max(num_fonts_, font_id + 1);
   return index;
 }
 
@@ -375,7 +369,7 @@ void ShapeTable::DeleteShape(int shape_id) {
 void ShapeTable::AddToShape(int shape_id, int unichar_id, int font_id) {
   Shape& shape = *shape_table_[shape_id];
   shape.AddToShape(unichar_id, font_id);
-  num_fonts_ = MAX(num_fonts_, font_id + 1);
+  num_fonts_ = std::max(num_fonts_, font_id + 1);
 }
 
 // Adds the given shape to the existing shape with the given index.

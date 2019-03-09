@@ -16,8 +16,41 @@
 
 #ifdef HAVE_CONFIG_H
 #include "config_auto.h"
-#include "baseapi.h"
 #endif
+
+#include "baseapi.h"
+
+#ifdef DISABLED_LEGACY_ENGINE
+
+#include "tprintf.h"
+#include "commandlineflags.h"
+
+
+void ParseArguments(int* argc, char*** argv);
+
+
+namespace tesseract {
+
+// Check whether the shared tesseract library is the right one.
+// This function must be inline because otherwise it would be part of
+// the shared library, so it could not compare the versions.
+static inline void CheckSharedLibraryVersion()
+{
+#ifdef HAVE_CONFIG_H
+  if (!!strcmp(TESSERACT_VERSION_STR, TessBaseAPI::Version())) {
+    tprintf("ERROR: shared library version mismatch (was %s, expected %s\n"
+            "Did you use a wrong shared tesseract library?\n",
+            TessBaseAPI::Version(), TESSERACT_VERSION_STR);
+    exit(1);
+  }
+#endif
+}
+
+}  // namespace tesseract
+
+
+#else
+
 #include "cluster.h"
 #include "commandlineflags.h"
 #include "featdefs.h"
@@ -57,7 +90,7 @@ typedef struct
   int   NumMerged[MAX_NUM_PROTOS];
   CLASS_TYPE Class;
 }MERGE_CLASS_NODE;
-typedef MERGE_CLASS_NODE* MERGE_CLASS;
+using MERGE_CLASS = MERGE_CLASS_NODE*;
 
 
 //////////////////////////////////////////////////////////////////////////////
@@ -142,8 +175,8 @@ CLUSTERER *SetUpForClustering(
 
 LIST RemoveInsignificantProtos(
     LIST        ProtoList,
-    BOOL8       KeepSigProtos,
-    BOOL8       KeepInsigProtos,
+    bool        KeepSigProtos,
+    bool        KeepInsigProtos,
     int         N);
 
 void CleanUpUnusedData(
@@ -181,9 +214,12 @@ void AddToNormProtosList(
 
 int NumberOfProtos(
     LIST        ProtoList,
-    BOOL8       CountSigProtos,
-    BOOL8       CountInsigProtos);
+    bool        CountSigProtos,
+    bool        CountInsigProtos);
 
 
 void allocNormProtos();
+
+#endif  // def DISABLED_LEGACY_ENGINE
+
 #endif  // TESSERACT_TRAINING_COMMONTRAINING_H_

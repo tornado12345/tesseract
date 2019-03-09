@@ -2,7 +2,6 @@
 // File:        unicharset.cpp
 // Description: Unicode character/ligature set class.
 // Author:      Thomas Kielbus
-// Created:     Wed Jun 28 17:05:01 PDT 2006
 //
 // (C) Copyright 2006, Google Inc.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,14 +18,14 @@
 
 #include "unicharset.h"
 
-#include <assert.h>
-#include <stdio.h>
-#include <string.h>
+#include <algorithm>
+#include <cassert>
+#include <cstdio>
+#include <cstring>
 
 #include "params.h"
 #include "serialis.h"
 #include "tesscallback.h"
-#include "tprintf.h"
 #include "unichar.h"
 
 // TODO(rays) Move UNICHARSET to tesseract namespace.
@@ -137,7 +136,7 @@ void UNICHARSET::UNICHAR_PROPERTIES::SetRangesEmpty() {
 }
 
 // Returns true if any of the top/bottom/width/bearing/advance ranges/stats
-// is emtpy.
+// is empty.
 bool UNICHARSET::UNICHAR_PROPERTIES::AnyRangeEmpty() const {
   return width == 0.0f || advance == 0.0f;
 }
@@ -482,9 +481,9 @@ void UNICHARSET::AppendOtherUnicharset(const UNICHARSET& src) {
 // Returns true if the acceptable ranges of the tops of the characters do
 // not overlap, making their x-height calculations distinct.
 bool UNICHARSET::SizesDistinct(UNICHAR_ID id1, UNICHAR_ID id2) const {
-  int overlap = MIN(unichars[id1].properties.max_top,
+  int overlap = std::min(unichars[id1].properties.max_top,
                     unichars[id2].properties.max_top) -
-                MAX(unichars[id1].properties.min_top,
+          std::max(unichars[id1].properties.min_top,
                     unichars[id2].properties.min_top);
   return overlap <= 0;
 }
@@ -804,7 +803,7 @@ bool UNICHARSET::load_via_fgets(
     unsigned int properties;
     char script[64];
 
-    strncpy(script, null_script, sizeof(script));
+    strncpy(script, null_script, sizeof(script) - 1);
     int min_bottom = 0;
     int max_bottom = UINT8_MAX;
     int min_top = 0;

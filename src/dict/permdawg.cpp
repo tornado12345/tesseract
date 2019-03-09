@@ -26,15 +26,14 @@
               I n c l u d e s
 ----------------------------------------------------------------------*/
 
-#include "cutil.h"
 #include "dawg.h"
 #include "globals.h"
-#include "ndminx.h"
 #include "stopper.h"
 #include "tprintf.h"
 #include "params.h"
 
-#include <ctype.h>
+#include <algorithm>
+#include <cctype>
 #include "dict.h"
 
 /*----------------------------------------------------------------------
@@ -89,7 +88,7 @@ void Dict::go_deeper_dawg_fxn(
       ++num_unigrams;
       word->append_unichar_id(uch_id, 1, 0.0, 0.0);
       unigrams_ok = (this->*letter_is_okay_)(
-          &unigram_dawg_args,
+          &unigram_dawg_args, *word->unicharset(),
           word->unichar_id(word_index+num_unigrams-1),
           word_ending && i == encoding.size() - 1);
       (*unigram_dawg_args.active_dawgs) = *(unigram_dawg_args.updated_dawgs);
@@ -112,7 +111,8 @@ void Dict::go_deeper_dawg_fxn(
   // Check which dawgs from the dawgs_ vector contain the word
   // up to and including the current unichar.
   if (checked_unigrams || (this->*letter_is_okay_)(
-      more_args, word->unichar_id(word_index), word_ending)) {
+      more_args, *word->unicharset(), word->unichar_id(word_index),
+      word_ending)) {
     // Add a new word choice
     if (word_ending) {
       if (dawg_debug_level) {
@@ -254,8 +254,7 @@ void Dict::append_choices(
     WERD_CHOICE *best_choice,
     int *attempts_left,
     void *more_args) {
-  int word_ending =
-    (char_choice_index == char_choices.length() - 1) ? true : false;
+  int word_ending = (char_choice_index == char_choices.length() - 1);
 
   // Deal with fragments.
   CHAR_FRAGMENT_INFO char_frag_info;
@@ -376,7 +375,7 @@ bool Dict::fragment_state_okay(UNICHAR_ID curr_unichar_id,
         prev_char_frag_info->rating + curr_rating;
       char_frag_info->num_fragments = prev_char_frag_info->num_fragments + 1;
       char_frag_info->certainty =
-        MIN(curr_certainty, prev_char_frag_info->certainty);
+              std::min(curr_certainty, prev_char_frag_info->certainty);
     } else {
       if (this_fragment->is_beginning()) {
         if (debug) tprintf("Record fragment beginning\n");

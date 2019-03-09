@@ -19,7 +19,8 @@
 
 #include "normalis.h"
 
-#include <stdlib.h>
+#include <cfloat>        // for FLT_MAX
+#include <cstdlib>
 
 #include "allheaders.h"
 #include "blobs.h"
@@ -409,7 +410,6 @@ void DENORM::DenormTransform(const DENORM* last_denorm, const FCOORD& pt,
 // Normalize a blob using blob transformations. Less accurate, but
 // more accurately copies the old way.
 void DENORM::LocalNormBlob(TBLOB* blob) const {
-  TBOX blob_box = blob->bounding_box();
   ICOORD translation(-IntCastRounded(x_origin_), -IntCastRounded(y_origin_));
   blob->Move(translation);
   if (y_scale_ != 1.0f)
@@ -431,7 +431,7 @@ void DENORM::XHeightRange(int unichar_id, const UNICHARSET& unicharset,
   // Default return -- accept anything.
   *yshift = 0.0f;
   *min_xht = 0.0f;
-  *max_xht = MAX_FLOAT32;
+  *max_xht = FLT_MAX;
 
   if (!unicharset.top_bottom_useful())
     return;

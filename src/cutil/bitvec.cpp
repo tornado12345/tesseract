@@ -1,10 +1,9 @@
 /******************************************************************************
- **	Filename:    bitvec.c
- **	Purpose:     Routines for manipulating bit vectors
- **	Author:      Dan Johnson
- **	History:     Thu Mar 15 10:37:27 1990, DSJ, Created.
+ ** Filename:    bitvec.c
+ ** Purpose:     Routines for manipulating bit vectors
+ ** Author:      Dan Johnson
  **
- **	(c) Copyright Hewlett-Packard Company, 1988.
+ ** (c) Copyright Hewlett-Packard Company, 1988.
  ** Licensed under the Apache License, Version 2.0 (the "License");
  ** you may not use this file except in compliance with the License.
  ** You may obtain a copy of the License at
@@ -21,10 +20,9 @@
 -----------------------------------------------------------------------------*/
 #include "bitvec.h"
 
-#include <stdio.h>
+#include <cstdio>
 
 #include "emalloc.h"
-#include "tprintf.h"
 
 /*-----------------------------------------------------------------------------
               Public Code
@@ -34,15 +32,13 @@
  * This routine uses realloc to increase the size of
  * the specified bit vector.
  *
- * Globals: 
+ * Globals:
  * - none
  *
  * @param Vector bit vector to be expanded
  * @param NewNumBits new size of bit vector
  *
  * @return New expanded bit vector.
- * @note Exceptions: none
- * @note History: Fri Nov 16 10:11:16 1990, DSJ, Created.
  */
 BIT_VECTOR ExpandBitVector(BIT_VECTOR Vector, int NewNumBits) {
   return ((BIT_VECTOR) Erealloc(Vector,
@@ -63,8 +59,6 @@ void FreeBitVector(BIT_VECTOR BitVector) {
  *
  * @param BitVector bit vector to be freed
  *
- * @note Exceptions: none
- * @note History: Tue Oct 23 16:46:09 1990, DSJ, Created.
  */
   if (BitVector) {
     Efree(BitVector);
@@ -78,13 +72,11 @@ void FreeBitVector(BIT_VECTOR BitVector) {
  * hold the specified number of bits.
  *
  * Globals:
- * - BitVectorCount	number of bit vectors allocated
+ * - BitVectorCount number of bit vectors allocated
  *
  * @param NumBits number of bits in new bit vector
  *
  * @return New bit vector.
- * @note Exceptions: none
- * @note History: Tue Oct 23 16:51:27 1990, DSJ, Created.
  */
 BIT_VECTOR NewBitVector(int NumBits) {
   return ((BIT_VECTOR) Emalloc(sizeof(uint32_t) *

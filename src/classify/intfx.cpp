@@ -17,7 +17,7 @@
  ** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  ** See the License for the specific language governing permissions and
  ** limitations under the License.
- ******************************************************************************/
+ *****************************************************************************/
 /**----------------------------------------------------------------------------
           Include Files and Type Defines
 ----------------------------------------------------------------------------**/
@@ -25,11 +25,9 @@
 #include "allheaders.h"
 #include "ccutil.h"
 #include "classify.h"
-#include "const.h"
 #include "helpers.h"
 #include "intmatcher.h"
 #include "linlsq.h"
-#include "ndminx.h"
 #include "normalis.h"
 #include "statistc.h"
 #include "trainingsample.h"
@@ -57,8 +55,8 @@ void InitIntegerFX() {
   atan_table_mutex.Lock();
   if (!atan_table_init) {
     for (int i = 0; i < INT_CHAR_NORM_RANGE; ++i) {
-      cos_table[i] = cos(i * 2 * PI / INT_CHAR_NORM_RANGE + PI);
-      sin_table[i] = sin(i * 2 * PI / INT_CHAR_NORM_RANGE + PI);
+      cos_table[i] = cos(i * 2 * M_PI / INT_CHAR_NORM_RANGE + M_PI);
+      sin_table[i] = sin(i * 2 * M_PI / INT_CHAR_NORM_RANGE + M_PI);
     }
     atan_table_init = true;
   }
@@ -168,8 +166,9 @@ void Classify::SetupBLCNDenorms(const TBLOB& blob, bool nonlinear_norm,
 
 // Helper normalizes the direction, assuming that it is at the given
 // unnormed_pos, using the given denorm, starting at the root_denorm.
-uint8_t NormalizeDirection(uint8_t dir, const FCOORD& unnormed_pos,
-                         const DENORM& denorm, const DENORM* root_denorm) {
+static uint8_t NormalizeDirection(uint8_t dir, const FCOORD& unnormed_pos,
+                                  const DENORM& denorm,
+                                  const DENORM* root_denorm) {
   // Convert direction to a vector.
   FCOORD unnormed_end;
   unnormed_end.from_direction(dir);
@@ -354,7 +353,7 @@ static void ExtractFeaturesFromRun(
     denorm.NormTransform(root_denorm, prev_normed_pos, &prev_normed_pos);
     LLSQ points;
     LLSQ dirs;
-    FCOORD normed_pos;
+    FCOORD normed_pos(0.0f, 0.0f);
     int index = GatherPoints(outline, feature_length, denorm, root_denorm,
                              start_index, end_index, &pos, &normed_pos,
                              &points, &dirs);
@@ -366,7 +365,7 @@ static void ExtractFeaturesFromRun(
       // accumulators.
       LLSQ next_points;
       LLSQ next_dirs;
-      FCOORD next_normed_pos;
+      FCOORD next_normed_pos(0.0f, 0.0f);
       index = GatherPoints(outline, feature_length, denorm, root_denorm,
                            index, end_index, &pos, &next_normed_pos,
                            &next_points, &next_dirs);

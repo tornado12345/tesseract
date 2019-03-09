@@ -22,7 +22,8 @@
 #endif
 
 #include "tablefind.h"
-#include <math.h>
+#include <algorithm>
+#include <cmath>
 
 #include "allheaders.h"
 
@@ -80,7 +81,7 @@ const double kMaxBlobOverlapFactor = 4.0;
 const double kMaxTableCellXheight = 2.0;
 
 // Maximum line spacing between a table column header and column contents
-// for merging the two (as a multiple of the partition's median_size).
+// for merging the two (as a multiple of the partition's median_height).
 const int kMaxColumnHeaderDistance = 4;
 
 // Minimum ratio of num_table_partitions to num_text_partitions in a column
@@ -473,7 +474,7 @@ void TableFinder::SplitAndInsertFragmentedTextPartition(ColPartition* part) {
       }
 
       // The right side of the previous blobs.
-      previous_right = MAX(previous_right, box.right());
+      previous_right = std::max(previous_right, static_cast<int>(box.right()));
     }
   }
   // When a split is not found, the right part is minimized
@@ -492,7 +493,7 @@ bool TableFinder::AllowTextPartition(const ColPartition& part) const {
   const int median_area = global_median_xheight_ * global_median_blob_width_;
   const double kAreaPerBlobRequired = median_area * kAllowTextArea;
   // Keep comparisons strictly greater to disallow 0!
-  return part.median_size() > kHeightRequired &&
+  return part.median_height() > kHeightRequired &&
          part.median_width() > kWidthRequired &&
          part.bounding_box().area() > kAreaPerBlobRequired * part.boxes_count();
 }
@@ -550,7 +551,7 @@ void TableFinder::GroupColumnBlocks(ColSegment_LIST* new_blocks,
       TBOX dest_box = dest_seg->bounding_box();
       if (ConsecutiveBoxes(src_box, dest_box)) {
         // If matching block is found, insert the current block into it
-        // and delete the soure block
+        // and delete the source block.
         dest_seg->InsertBox(src_box);
         match_found = true;
         delete src_it.extract();
@@ -597,12 +598,12 @@ void TableFinder::SetPartitionSpacings(ColPartitionGrid* grid,
     ColPartition* right_column = columns->ColumnContaining(box.right(), y);
     // set distance from left column as space to the left
     if (left_column) {
-      int left_space = MAX(0, box.left() - left_column->LeftAtY(y));
+      int left_space = std::max(0, box.left() - left_column->LeftAtY(y));
       part->set_space_to_left(left_space);
     }
     // set distance from right column as space to the right
     if (right_column) {
-      int right_space = MAX(0, right_column->RightAtY(y) - box.right());
+      int right_space = std::max(0, right_column->RightAtY(y) - box.right());
       part->set_space_to_right(right_space);
     }
 
@@ -617,7 +618,7 @@ void TableFinder::SetPartitionSpacings(ColPartitionGrid* grid,
           neighbor->type() == PT_HEADING_IMAGE) {
         int right = neighbor->bounding_box().right();
         if (right < box.left()) {
-          int space = MIN(box.left() - right, part->space_to_left());
+          int space = std::min(box.left() - right, part->space_to_left());
           part->set_space_to_left(space);
         }
       }
@@ -630,7 +631,7 @@ void TableFinder::SetPartitionSpacings(ColPartitionGrid* grid,
           neighbor->type() == PT_HEADING_IMAGE) {
         int left = neighbor->bounding_box().left();
         if (left > box.right()) {
-          int space = MIN(left - box.right(), part->space_to_right());
+          int space = std::min(left - box.right(), part->space_to_right());
           part->set_space_to_right(space);
         }
       }
@@ -638,8 +639,8 @@ void TableFinder::SetPartitionSpacings(ColPartitionGrid* grid,
 
     ColPartition* upper_part = part->SingletonPartner(true);
     if (upper_part) {
-      int space = MAX(0, upper_part->bounding_box().bottom() -
-                         part->bounding_box().bottom());
+      int space = std::max(0, static_cast<int>(upper_part->bounding_box().bottom() -
+                         part->bounding_box().bottom()));
       part->set_space_above(space);
     } else {
       // TODO(nbeato): What constitutes a good value?
@@ -650,8 +651,8 @@ void TableFinder::SetPartitionSpacings(ColPartitionGrid* grid,
 
     ColPartition* lower_part = part->SingletonPartner(false);
     if (lower_part) {
-      int space = MAX(0, part->bounding_box().bottom() -
-                         lower_part->bounding_box().bottom());
+      int space = std::max(0, static_cast<int>(part->bounding_box().bottom() -
+                         lower_part->bounding_box().bottom()));
       part->set_space_below(space);
     } else {
       // TODO(nbeato): What constitutes a good value?
@@ -665,8 +666,8 @@ void TableFinder::SetPartitionSpacings(ColPartitionGrid* grid,
 // Set spacing and closest neighbors above and below a given colpartition.
 void TableFinder::SetVerticalSpacing(ColPartition* part) {
   TBOX box = part->bounding_box();
-  int top_range = MIN(box.top() + kMaxVerticalSpacing, tright().y());
-  int bottom_range = MAX(box.bottom() - kMaxVerticalSpacing, bleft().y());
+  int top_range = std::min(box.top() + kMaxVerticalSpacing, static_cast<int>(tright().y()));
+  int bottom_range = std::max(box.bottom() - kMaxVerticalSpacing, static_cast<int>(bleft().y()));
   box.set_top(top_range);
   box.set_bottom(bottom_range);
 
@@ -723,7 +724,7 @@ void TableFinder::SetGlobalSpacings(ColPartitionGrid* grid) {
     // table find runs. Alternative solution.
     // part->ComputeLimits();
     if (part->IsTextType()) {
-      // xheight_stats.add(part->median_size(), part->boxes_count());
+      // xheight_stats.add(part->median_height(), part->boxes_count());
       // width_stats.add(part->median_width(), part->boxes_count());
 
       // This loop can be removed when above issues are fixed.
@@ -834,7 +835,7 @@ void TableFinder::MarkPartitionsUsingLocalInformation() {
     if (!part->IsTextType())  // Only consider text partitions
       continue;
     // Only consider partitions in dominant font size or smaller
-    if (part->median_size() > kMaxTableCellXheight * global_median_xheight_)
+    if (part->median_height() > kMaxTableCellXheight * global_median_xheight_)
       continue;
     // Mark partitions with a large gap, or no significant gap as
     // table partitions.
@@ -862,7 +863,7 @@ bool TableFinder::HasWideOrNoInterWordGap(ColPartition* part) const {
   BLOBNBOX_C_IT it(part_boxes);
   // Check if this is a relatively small partition (such as a single word)
   if (part->bounding_box().width() <
-      kMinBoxesInTextPartition * part->median_size() &&
+      kMinBoxesInTextPartition * part->median_height() &&
       part_boxes->length() < kMinBoxesInTextPartition)
     return true;
 
@@ -875,8 +876,8 @@ bool TableFinder::HasWideOrNoInterWordGap(ColPartition* part) const {
   // Text partition gap limits. If this is text (and not a table),
   // there should be at least one gap larger than min_gap and no gap
   // larger than max_gap.
-  const double max_gap = kMaxGapInTextPartition * part->median_size();
-  const double min_gap = kMinMaxGapInTextPartition * part->median_size();
+  const double max_gap = kMaxGapInTextPartition * part->median_height();
+  const double min_gap = kMinMaxGapInTextPartition * part->median_height();
 
   for (it.mark_cycle_pt(); !it.cycled_list(); it.forward()) {
     BLOBNBOX* blob = it.data();
@@ -894,8 +895,8 @@ bool TableFinder::HasWideOrNoInterWordGap(ColPartition* part) const {
         // More likely case, the blobs slightly overlap. This can happen
         // with diacritics (accents) or broken alphabet symbols (characters).
         // Merge boxes together by taking max of right sides.
-        if (-gap < part->median_size() * kMaxBlobOverlapFactor) {
-          previous_x1 = MAX(previous_x1, current_x1);
+        if (-gap < part->median_height() * kMaxBlobOverlapFactor) {
+          previous_x1 = std::max(previous_x1, current_x1);
           continue;
         }
         // Extreme case, blobs overlap significantly in the same partition...
@@ -917,7 +918,7 @@ bool TableFinder::HasWideOrNoInterWordGap(ColPartition* part) const {
   // Since no large gap was found, return false if the partition is too
   // long to be a data cell
   if (part->bounding_box().width() >
-      kMaxBoxesInDataPartition * part->median_size() ||
+      kMaxBoxesInDataPartition * part->median_height() ||
       part_boxes->length() > kMaxBoxesInDataPartition)
     return false;
 
@@ -1024,14 +1025,14 @@ void TableFinder::FilterParagraphEndings() {
     if (left_to_right_language_) {
       // Left to right languages, use mid - left to figure out the distance
       // the middle is from the left margin.
-      int left = MIN(part->bounding_box().left(),
+      int left = std::min(part->bounding_box().left(),
                      upper_part->bounding_box().left());
       current_spacing = mid - left;
       upper_spacing = upper_mid - left;
     } else {
       // Right to left languages, use right - mid to figure out the distance
       // the middle is from the right margin.
-      int right = MAX(part->bounding_box().right(),
+      int right = std::max(part->bounding_box().right(),
                       upper_part->bounding_box().right());
       current_spacing = right - mid;
       upper_spacing = right - upper_mid;
@@ -1050,7 +1051,7 @@ void TableFinder::FilterParagraphEndings() {
     // TODO(nbeato): This would be untrue if the text was right aligned.
     // How often is that?
     if (part->space_to_left() >
-        kMaxParagraphEndingLeftSpaceMultiple * part->median_size())
+        kMaxParagraphEndingLeftSpaceMultiple * part->median_height())
       continue;
     // The line above it should be right aligned (assuming justified format).
     // Since we can't assume justified text, we compare whitespace to text.
@@ -1210,8 +1211,8 @@ void TableFinder::GridMergeColumnBlocks() {
     do {
       TBOX box = seg->bounding_box();
       // slightly expand the search region vertically
-      int top_range = MIN(box.top() + margin, tright().y());
-      int bottom_range = MAX(box.bottom() - margin, bleft().y());
+      int top_range = std::min(box.top() + margin, static_cast<int>(tright().y()));
+      int bottom_range = std::max(box.bottom() - margin, static_cast<int>(bleft().y()));
       box.set_top(top_range);
       box.set_bottom(bottom_range);
       neighbor_found = false;
@@ -1646,7 +1647,7 @@ bool TableFinder::HLineBelongsToTable(const ColPartition& part,
         extra_space_to_left++;
         continue;
       }
-      int space_threshold = kSideSpaceMargin * part.median_size();
+      int space_threshold = kSideSpaceMargin * part.median_height();
       if (extra_part->space_to_right() > space_threshold)
         extra_space_to_right++;
       if (extra_part->space_to_left() > space_threshold)
@@ -1671,7 +1672,7 @@ void TableFinder::IncludeLeftOutColumnHeaders(TBOX* table_box) {
   while ((neighbor = vsearch.NextVerticalSearch(false)) != nullptr) {
     // Max distance to find a table heading.
     const int max_distance = kMaxColumnHeaderDistance *
-                             neighbor->median_size();
+                             neighbor->median_height();
     int table_top = table_box->top();
     const TBOX& box = neighbor->bounding_box();
     // Do not continue if the next box is way above
@@ -1748,7 +1749,7 @@ void TableFinder::DeleteSingleColumnTables() {
         int xstart = pblob->bounding_box().left();
         int xend = pblob->bounding_box().right();
 
-        xstart = MAX(xstart, next_position_to_write);
+        xstart = std::max(xstart, next_position_to_write);
         for (int i = xstart; i < xend; i++)
           table_xprojection[i - bleft().x()]++;
         next_position_to_write = xend;
@@ -2064,8 +2065,6 @@ ColSegment::ColSegment()
       num_table_cells_(0),
       num_text_cells_(0),
       type_(COL_UNKNOWN) {
-}
-ColSegment::~ColSegment() {
 }
 
 // Provides a color for BBGrid to draw the rectangle.

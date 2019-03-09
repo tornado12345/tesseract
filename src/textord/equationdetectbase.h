@@ -31,7 +31,7 @@ class ColPartitionSet;
 
 class EquationDetectBase {
  public:
-  EquationDetectBase();
+  EquationDetectBase() = default;
   virtual ~EquationDetectBase();
 
   // Iterate over the blobs inside to_block, and set the blobs that we want to

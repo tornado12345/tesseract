@@ -27,7 +27,9 @@
 
 #include "baselinedetect.h"
 
-#include <math.h>
+#include <algorithm>
+#include <cfloat>      // for FLT_MAX
+#include <cmath>
 #include "allheaders.h"
 #include "blobbox.h"
 #include "detlinefit.h"
@@ -107,8 +109,8 @@ double BaselineRow::BaselineAngle() const {
 // between this and other.
 double BaselineRow::SpaceBetween(const BaselineRow& other) const {
   // Find the x-centre of overlap of the lines.
-  float x = (MAX(bounding_box_.left(), other.bounding_box_.left()) +
-      MIN(bounding_box_.right(), other.bounding_box_.right())) / 2.0f;
+  float x = (std::max(bounding_box_.left(), other.bounding_box_.left()) +
+          std::min(bounding_box_.right(), other.bounding_box_.right())) / 2.0f;
   // Find the vertical centre between them.
   float y = (StraightYAtX(x) + other.StraightYAtX(x)) / 2.0f;
   // Find the perpendicular distance of (x,y) from each line.
@@ -288,8 +290,8 @@ void BaselineRow::SetupBlobDisplacements(const FCOORD& direction) {
   GenericVector<double> perp_blob_dists;
   displacement_modes_.truncate(0);
   // Gather the skew-corrected position of every blob.
-  double min_dist = MAX_FLOAT32;
-  double max_dist = -MAX_FLOAT32;
+  double min_dist = FLT_MAX;
+  double max_dist = -FLT_MAX;
   BLOBNBOX_IT blob_it(blobs_);
 #ifdef kDebugYCoord
   bool debug = false;
@@ -506,7 +508,7 @@ void BaselineBlock::ParallelizeBaselines(double default_block_skew) {
 void BaselineBlock::SetupBlockParameters() const {
   if (line_spacing_ > 0.0) {
     // Where was block_line_spacing set before?
-    float min_spacing = MIN(block_->line_spacing, line_spacing_);
+    float min_spacing = std::min(block_->line_spacing, static_cast<float>(line_spacing_));
     if (min_spacing < block_->line_size)
       block_->line_size = min_spacing;
     block_->line_spacing = line_spacing_;
@@ -805,9 +807,6 @@ BaselineDetect::BaselineDetect(int debug_level, const FCOORD& page_skew,
     bool non_text = pb != nullptr && !pb->IsText();
     blocks_.push_back(new BaselineBlock(debug_level_, non_text, to_block));
   }
-}
-
-BaselineDetect::~BaselineDetect() {
 }
 
 // Finds the initial baselines for each TO_ROW in each TO_BLOCK, gathers

@@ -21,9 +21,11 @@
 // To avoid collision with other typenames include the ABSOLUTE MINIMUM
 // complexity of includes here. Use forward declarations wherever possible
 // and hide includes of complex types in baseapi.cpp.
+#include <string>               // for std::string
 #include "genericvector.h"
 #include "platform.h"
-#include "publictypes.h"
+
+struct Pix;
 
 namespace tesseract {
 
@@ -79,6 +81,9 @@ class TESS_API TessResultRenderer {
 
     const char* file_extension() const { return file_extension_; }
     const char* title() const { return title_.c_str(); }
+
+    // Is everything fine? Otherwise something went wrong.
+    bool happy() { return happy_; }
 
     /**
      * Returns the index of the last image given to AddImage
@@ -164,6 +169,20 @@ class TESS_API TessHOcrRenderer : public TessResultRenderer {
 };
 
 /**
+ * Renders tesseract output into an alto text string
+ */
+    class TESS_API TessAltoRenderer : public TessResultRenderer {
+    public:
+        explicit TessAltoRenderer(const char *outputbase);
+
+    protected:
+        virtual bool BeginDocumentHandler();
+        virtual bool AddImageHandler(TessBaseAPI* api);
+        virtual bool EndDocumentHandler();
+
+    };
+
+/**
  * Renders Tesseract output into a TSV string
  */
 class TESS_API TessTsvRenderer : public TessResultRenderer {
@@ -187,7 +206,7 @@ class TESS_API TessPDFRenderer : public TessResultRenderer {
  public:
   // datadir is the location of the TESSDATA. We need it because
   // we load a custom PDF font from this location.
-  TessPDFRenderer(const char* outputbase, const char* datadir, bool textonly);
+  TessPDFRenderer(const char* outputbase, const char* datadir, bool textonly = false);
 
  protected:
   virtual bool BeginDocumentHandler();
@@ -203,7 +222,7 @@ class TESS_API TessPDFRenderer : public TessResultRenderer {
   long int obj_;                     // counter for PDF objects
   GenericVector<long int> offsets_;  // offset of every PDF object in bytes
   GenericVector<long int> pages_;    // object number for every /Page object
-  const char *datadir_;              // where to find the custom font
+  std::string datadir_;              // where to find the custom font
   bool textonly_;                    // skip images if set
   // Bookkeeping only. DIY = Do It Yourself.
   void AppendPDFObjectDIY(size_t objectsize);
@@ -212,8 +231,8 @@ class TESS_API TessPDFRenderer : public TessResultRenderer {
   // Create the /Contents object for an entire page.
   char* GetPDFTextObjects(TessBaseAPI* api, double width, double height);
   // Turn an image into a PDF object. Only transcode if we have to.
-  static bool imageToPDFObj(Pix *pix, char *filename, long int objnum,
-                          char **pdf_object, long int *pdf_object_size);
+  static bool imageToPDFObj(Pix* pix, const char* filename, long int objnum,
+                          char** pdf_object, long int* pdf_object_size, const int jpg_quality);
 };
 
 
@@ -223,6 +242,17 @@ class TESS_API TessPDFRenderer : public TessResultRenderer {
 class TESS_API TessUnlvRenderer : public TessResultRenderer {
  public:
   explicit TessUnlvRenderer(const char *outputbase);
+
+ protected:
+  virtual bool AddImageHandler(TessBaseAPI* api);
+};
+
+/**
+ * Renders tesseract output into a plain UTF-8 text string for LSTMBox
+ */
+class TESS_API TessLSTMBoxRenderer : public TessResultRenderer {
+ public:
+  explicit TessLSTMBoxRenderer(const char* outputbase);
 
  protected:
   virtual bool AddImageHandler(TessBaseAPI* api);
@@ -240,6 +270,19 @@ class TESS_API TessBoxTextRenderer : public TessResultRenderer {
 };
 
 /**
+ * Renders tesseract output into a plain UTF-8 text string in WordStr format
+ */
+class TESS_API TessWordStrBoxRenderer : public TessResultRenderer {
+ public:
+  explicit TessWordStrBoxRenderer(const char* outputbase);
+
+ protected:
+  virtual bool AddImageHandler(TessBaseAPI* api);
+};
+
+#ifndef DISABLED_LEGACY_ENGINE
+
+/**
  * Renders tesseract output into an osd text string
  */
 class TESS_API TessOsdRenderer : public TessResultRenderer {
@@ -249,6 +292,8 @@ class TESS_API TessOsdRenderer : public TessResultRenderer {
  protected:
   virtual bool AddImageHandler(TessBaseAPI* api);
 };
+
+#endif // ndef DISABLED_LEGACY_ENGINE
 
 }  // namespace tesseract.
 

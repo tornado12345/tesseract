@@ -1,8 +1,8 @@
 /**********************************************************************
- * File:        pdblock.cpp  (Formerly pdblk.c)
+ * File:        pdblock.cpp
  * Description: PDBLK member functions and iterator functions.
- * Author:					Ray Smith
- * Created:					Fri Mar 15 09:41:28 GMT 1991
+ * Author:      Ray Smith
+ * Created:     Fri Mar 15 09:41:28 GMT 1991
  *
  * (C) Copyright 1991, Hewlett-Packard Ltd.
  ** Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,10 +18,9 @@
  **********************************************************************/
 
 #include "pdblock.h"
-#include <stdlib.h>
+#include <cstdlib>
 #include <memory>  // std::unique_ptr
 #include "allheaders.h"
-#include "blckerr.h"
 
 // Include automatically generated configuration file if running autoconf.
 #ifdef HAVE_CONFIG_H
@@ -29,6 +28,9 @@
 #endif
 
 #define BLOCK_LABEL_HEIGHT  150  //char height of block id
+
+const ERRCODE BADBLOCKLINE = "Y coordinate in block out of bounds";
+const ERRCODE LOSTBLOCKLINE = "Can't find rectangle for line";
 
 CLISTIZE (PDBLK)
 /**********************************************************************
@@ -70,12 +72,12 @@ void PDBLK::set_sides(                       //set vertex lists
   ICOORDELT_IT left_it = &leftside;
   ICOORDELT_IT right_it = &rightside;
 
-  leftside.clear ();
-  left_it.move_to_first ();
-  left_it.add_list_before (left);
-  rightside.clear ();
-  right_it.move_to_first ();
-  right_it.add_list_before (right);
+  leftside.clear();
+  left_it.move_to_first();
+  left_it.add_list_before(left);
+  rightside.clear();
+  right_it.move_to_first();
+  right_it.add_list_before(right);
 }
 
 /**********************************************************************
@@ -84,21 +86,21 @@ void PDBLK::set_sides(                       //set vertex lists
  * Return TRUE if the given point is within the block.
  **********************************************************************/
 
-BOOL8 PDBLK::contains(           //test containment
-                      ICOORD pt  //point to test
-                     ) {
+bool PDBLK::contains(           //test containment
+        ICOORD pt  //point to test
+) {
   BLOCK_RECT_IT it = this;       //rectangle iterator
   ICOORD bleft, tright;          //corners of rectangle
 
-  for (it.start_block (); !it.cycled_rects (); it.forward ()) {
+  for (it.start_block(); !it.cycled_rects(); it.forward()) {
                                  //get rectangle
     it.bounding_box (bleft, tright);
                                  //inside rect
-    if (pt.x () >= bleft.x () && pt.x () <= tright.x ()
-      && pt.y () >= bleft.y () && pt.y () <= tright.y ())
-      return TRUE;               //is inside
+    if (pt.x() >= bleft.x() && pt.x() <= tright.x()
+      && pt.y() >= bleft.y() && pt.y() <= tright.y())
+      return true;               //is inside
   }
-  return FALSE;                  //not inside
+  return false;                  //not inside
 }
 
 
@@ -196,11 +198,11 @@ void PDBLK::plot(                //draw outline
     //              tprintf("Block %d bottom left is (%d,%d)\n",
     //                      serial,startpt.x(),startpt.y());
     char temp_buff[34];
-    #if defined(__UNIX__) || defined(MINGW)
+#if !defined(_WIN32) || defined(__MINGW32__)
     snprintf(temp_buff, sizeof(temp_buff), "%" PRId32, serial);
-    #else
-    ultoa (serial, temp_buff, 10);
-    #endif
+#else
+    _ultoa(serial, temp_buff, 10);
+#endif
     window->Text(startpt.x (), startpt.y (), temp_buff);
 
     window->SetCursor(startpt.x (), startpt.y ());

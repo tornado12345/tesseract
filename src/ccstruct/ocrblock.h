@@ -1,8 +1,8 @@
 /**********************************************************************
  * File:        ocrblock.h  (Formerly block.h)
  * Description: Page block class definition.
- * Author:		Ray Smith
- * Created:		Thu Mar 14 17:32:01 GMT 1991
+ * Author:      Ray Smith
+ * Created:     Thu Mar 14 17:32:01 GMT 1991
  *
  * (C) Copyright 1991, Hewlett-Packard Ltd.
  ** Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,12 +17,12 @@
  *
  **********************************************************************/
 
-#ifndef           OCRBLOCK_H
-#define           OCRBLOCK_H
+#ifndef OCRBLOCK_H
+#define OCRBLOCK_H
 
-#include          "ocrpara.h"
-#include          "ocrrow.h"
-#include          "pdblock.h"
+#include "ocrpara.h"
+#include "ocrrow.h"
+#include "pdblock.h"
 
 class BLOCK;                     //forward decl
 
@@ -39,17 +39,16 @@ class BLOCK:public ELIST_LINK
     right_to_left_ = false;
     pdblk.hand_poly = nullptr;
   }
-  BLOCK(const char *name,  //< filename
-        BOOL8 prop,        //< proportional
-        int16_t kern,        //< kerning
-        int16_t space,       //< spacing
-        int16_t xmin,        //< bottom left
+  BLOCK(const char *name,  ///< filename
+        BOOL8 prop,        ///< proportional
+        int16_t kern,      ///< kerning
+        int16_t space,     ///< spacing
+        int16_t xmin,      ///< bottom left
         int16_t ymin,
-        int16_t xmax,        //< top right
+        int16_t xmax,      ///< top right
         int16_t ymax);
 
-  ~BLOCK () {
-  }
+  ~BLOCK () = default;
 
   /**
    * set space size etc.
@@ -187,32 +186,30 @@ class BLOCK:public ELIST_LINK
   void compress(const ICOORD vec);
 
   /// dump whole table
-  void print(FILE *fp, BOOL8 dump);
+  void print(FILE* fp, bool dump);
 
   BLOCK& operator=(const BLOCK & source);
-  PDBLK pdblk;                 //< Page Description Block
+  PDBLK pdblk;                 ///< Page Description Block
 
  private:
-  BOOL8 proportional;          //< proportional
-  bool right_to_left_;         //< major script is right to left.
-  int8_t kerning;                //< inter blob gap
-  int16_t spacing;               //< inter word gap
-  int16_t pitch;                 //< pitch of non-props
-  int16_t font_class;            //< correct font class
-  int32_t xheight;               //< height of chars
-  float cell_over_xheight_;    //< Ratio of cell height to xheight.
-  STRING filename;             //< name of block
-  ROW_LIST rows;               //< rows in block
-  PARA_LIST paras_;            //< paragraphs of block
-  C_BLOB_LIST c_blobs;         //< before textord
-  C_BLOB_LIST rej_blobs;       //< duff stuff
-  FCOORD re_rotation_;         //< How to transform coords back to image.
-  FCOORD classify_rotation_;   //< Apply this before classifying.
-  FCOORD skew_;                //< Direction of true horizontal.
-  ICOORD median_size_;         //< Median size of blobs. 
+  BOOL8 proportional;          ///< proportional
+  bool right_to_left_;         ///< major script is right to left.
+  int8_t kerning;              ///< inter blob gap
+  int16_t spacing;             ///< inter word gap
+  int16_t pitch;               ///< pitch of non-props
+  int16_t font_class;          ///< correct font class
+  int32_t xheight;             ///< height of chars
+  float cell_over_xheight_;    ///< Ratio of cell height to xheight.
+  STRING filename;             ///< name of block
+  ROW_LIST rows;               ///< rows in block
+  PARA_LIST paras_;            ///< paragraphs of block
+  C_BLOB_LIST c_blobs;         ///< before textord
+  C_BLOB_LIST rej_blobs;       ///< duff stuff
+  FCOORD re_rotation_;         ///< How to transform coords back to image.
+  FCOORD classify_rotation_;   ///< Apply this before classifying.
+  FCOORD skew_;                ///< Direction of true horizontal.
+  ICOORD median_size_;         ///< Median size of blobs.
 };
-
-int decreasing_top_order(const void *row1, const void *row2);
 
 // A function to print segmentation stats for the given block list.
 void PrintSegmentationStats(BLOCK_LIST* block_list);

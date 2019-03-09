@@ -52,7 +52,7 @@ template<class BBC, class BBC_CLIST, class BBC_C_IT> class GridSearch;
 // It holds the geometry and scale of the grid.
 class GridBase {
  public:
-  GridBase();
+  GridBase() = default;
   GridBase(int gridsize, const ICOORD& bleft, const ICOORD& tright);
   virtual ~GridBase();
 

@@ -2,7 +2,6 @@
  * File:        commandlineflags.h
  * Description: Header file for commandline flag parsing.
  * Author:      Ranjith Unnikrishnan
- * Created:     July 2013
  *
  * (C) Copyright 2013, Google Inc.
  ** Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,8 +20,7 @@
 
 #ifndef GOOGLE_TESSERACT
 
-#include <stdlib.h>
-#include "tprintf.h"
+#include <cstdlib>
 #include "params.h"
 
 #define INT_PARAM_FLAG(name, val, comment)      \

@@ -2,13 +2,7 @@
  ********************************************************************************
  *
  * File:         chopper.cpp  (Formerly chopper.c)
- * Description:
  * Author:       Mark Seaman, OCR Technology
- * Created:      Fri Oct 16 14:37:00 1987
- * Modified:     Tue Jul 30 16:18:52 1991 (Mark Seaman) marks@hpgrlt
- * Language:     C
- * Package:      N/A
- * Status:       Reusable Software Component
  *
  * (c) Copyright 1987, Hewlett-Packard Company.
  ** Licensed under the Apache License, Version 2.0 (the "License");
@@ -27,24 +21,27 @@
           I n c l u d e s
 ----------------------------------------------------------------------*/
 
-#include <math.h>
+#include "blamer.h"    // for BlamerBundle, IRR_CORRECT
+#include "blobs.h"     // for TPOINT, TBLOB, EDGEPT, TESSLINE, divisible_blob
+#include "callcpp.h"   // for Red
+#include "dict.h"      // for Dict
+#include "host.h"      // for FALSE, TRUE
+#include "lm_pain_points.h" // for LMPainPoints
+#include "lm_state.h"  // for BestChoiceBundle
+#include "matrix.h"    // for MATRIX
+#include "normalis.h"  // for DENORM
+#include "pageres.h"   // for WERD_RES
+#include "params.h"    // for IntParam, BoolParam
+#include "ratngs.h"    // for BLOB_CHOICE (ptr only), BLOB_CHOICE_LIST (ptr ...
+#include "rect.h"      // for TBOX
+#include "render.h"    // for display_blob
+#include "seam.h"      // for SEAM
+#include "split.h"     // for remove_edgept
+#include "stopper.h"   // for DANGERR
+#include "tprintf.h"   // for tprintf
+#include "wordrec.h"   // for Wordrec, SegSearchPending (ptr only)
 
-#include "chopper.h"
-
-#include "assert.h"
-#include "associate.h"
-#include "blobs.h"
-#include "callcpp.h"
-#include "const.h"
-#include "findseam.h"
-#include "globals.h"
-#include "render.h"
-#include "pageres.h"
-#include "seam.h"
-#include "stopper.h"
-#include "structures.h"
-#include "unicharset.h"
-#include "wordrec.h"
+template <typename T> class GenericVector;
 
 // Include automatically generated configuration file if running autoconf.
 #ifdef HAVE_CONFIG_H
@@ -58,12 +55,51 @@ static const int kMaxNumChunks = 64;
 /*----------------------------------------------------------------------
           F u n c t i o n s
 ----------------------------------------------------------------------*/
+
+/**
+ * @name check_blob
+ *
+ * @return true if blob has a non whole outline.
+ */
+static int check_blob(TBLOB *blob) {
+  TESSLINE *outline;
+  EDGEPT *edgept;
+
+  for (outline = blob->outlines; outline != nullptr; outline = outline->next) {
+    edgept = outline->loop;
+    do {
+      if (edgept == nullptr)
+        break;
+      edgept = edgept->next;
+    }
+    while (edgept != outline->loop);
+    if (edgept == nullptr)
+      return 1;
+  }
+  return 0;
+}
+
+/**
+ * @name any_shared_split_points
+ *
+ * Return true if any of the splits share a point with this one.
+ */
+static int any_shared_split_points(const GenericVector<SEAM*>& seams, SEAM *seam) {
+  int length;
+  int index;
+
+  length = seams.size();
+  for (index = 0; index < length; index++)
+    if (seam->SharesPosition(*seams[index])) return TRUE;
+  return FALSE;
+}
+
 /**
  * @name preserve_outline_tree
  *
  * Copy the list of outlines.
  */
-void preserve_outline(EDGEPT *start) {
+static void preserve_outline(EDGEPT *start) {
   EDGEPT *srcpt;
 
   if (start == nullptr)
@@ -77,9 +113,7 @@ void preserve_outline(EDGEPT *start) {
   srcpt->flags[1] = 2;
 }
 
-
-/**************************************************************************/
-void preserve_outline_tree(TESSLINE *srcline) {
+static void preserve_outline_tree(TESSLINE *srcline) {
   TESSLINE *outline;
 
   for (outline = srcline; outline != nullptr; outline = outline->next) {
@@ -87,13 +121,12 @@ void preserve_outline_tree(TESSLINE *srcline) {
   }
 }
 
-
 /**
  * @name restore_outline_tree
  *
  * Copy the list of outlines.
  */
-EDGEPT *restore_outline(EDGEPT *start) {
+static EDGEPT *restore_outline(EDGEPT *start) {
   EDGEPT *srcpt;
   EDGEPT *real_start;
 
@@ -117,15 +150,25 @@ EDGEPT *restore_outline(EDGEPT *start) {
   return real_start;
 }
 
-
-/******************************************************************************/
-void restore_outline_tree(TESSLINE *srcline) {
+static void restore_outline_tree(TESSLINE *srcline) {
   TESSLINE *outline;
 
   for (outline = srcline; outline != nullptr; outline = outline->next) {
     outline->loop = restore_outline (outline->loop);
     outline->start = outline->loop->pos;
   }
+}
+
+/**********************************************************************
+ * total_containment
+ *
+ * Check to see if one of these outlines is totally contained within
+ * the bounding box of the other.
+ **********************************************************************/
+static int16_t total_containment(TBLOB *blob1, TBLOB *blob2) {
+  TBOX box1 = blob1->bounding_box();
+  TBOX box2 = blob2->bounding_box();
+  return box1.contains(box2) || box2.contains(box1);
 }
 
 // Helper runs all the checks on a seam to make sure it is valid.
@@ -158,6 +201,7 @@ static SEAM* CheckSeam(int debug_level, int32_t blob_number, TWERD* word,
   return seam;
 }
 
+namespace tesseract {
 
 /**
  * @name attempt_blob_chop
@@ -165,7 +209,6 @@ static SEAM* CheckSeam(int debug_level, int32_t blob_number, TWERD* word,
  * Try to split the this blob after this one.  Check to make sure that
  * it was successful.
  */
-namespace tesseract {
 SEAM *Wordrec::attempt_blob_chop(TWERD *word, TBLOB *blob, int32_t blob_number,
                                  bool italic_blob,
                                  const GenericVector<SEAM*>& seams) {
@@ -270,50 +313,6 @@ SEAM *Wordrec::chop_overlapping_blob(const GenericVector<TBOX>& boxes,
   return nullptr;
 }
 
-}  // namespace tesseract
-
-
-/**
- * @name any_shared_split_points
- *
- * Return true if any of the splits share a point with this one.
- */
-int any_shared_split_points(const GenericVector<SEAM*>& seams, SEAM *seam) {
-  int length;
-  int index;
-
-  length = seams.size();
-  for (index = 0; index < length; index++)
-    if (seam->SharesPosition(*seams[index])) return TRUE;
-  return FALSE;
-}
-
-
-/**
- * @name check_blob
- *
- * @return true if blob has a non whole outline.
- */
-int check_blob(TBLOB *blob) {
-  TESSLINE *outline;
-  EDGEPT *edgept;
-
-  for (outline = blob->outlines; outline != nullptr; outline = outline->next) {
-    edgept = outline->loop;
-    do {
-      if (edgept == nullptr)
-        break;
-      edgept = edgept->next;
-    }
-    while (edgept != outline->loop);
-    if (edgept == nullptr)
-      return 1;
-  }
-  return 0;
-}
-
-
-namespace tesseract {
 /**
  * @name improve_one_blob
  *
@@ -332,7 +331,7 @@ SEAM* Wordrec::improve_one_blob(const GenericVector<BLOB_CHOICE*>& blob_choices,
                                 bool italic_blob,
                                 WERD_RES* word,
                                 int* blob_number) {
-  float rating_ceiling = MAX_FLOAT32;
+  float rating_ceiling = FLT_MAX;
   SEAM *seam = nullptr;
   do {
     *blob_number = select_blob_to_split_from_fixpt(fixpt);
@@ -542,14 +541,14 @@ int Wordrec::select_blob_to_split(
     float rating_ceiling, bool split_next_to_fragment) {
   BLOB_CHOICE *blob_choice;
   int x;
-  float worst = -MAX_FLOAT32;
+  float worst = -FLT_MAX;
   int worst_index = -1;
-  float worst_near_fragment = -MAX_FLOAT32;
+  float worst_near_fragment = -FLT_MAX;
   int worst_index_near_fragment = -1;
   const CHAR_FRAGMENT **fragments = nullptr;
 
   if (chop_debug) {
-    if (rating_ceiling < MAX_FLOAT32)
+    if (rating_ceiling < FLT_MAX)
       tprintf("rating_ceiling = %8.4f\n", rating_ceiling);
     else
       tprintf("rating_ceiling = No Limit\n");
@@ -638,18 +637,4 @@ int Wordrec::select_blob_to_split_from_fixpt(DANGERR *fixpt) {
   return -1;
 }
 
-
 }  // namespace tesseract
-
-
-/**********************************************************************
- * total_containment
- *
- * Check to see if one of these outlines is totally contained within
- * the bounding box of the other.
- **********************************************************************/
-int16_t total_containment(TBLOB *blob1, TBLOB *blob2) {
-  TBOX box1 = blob1->bounding_box();
-  TBOX box2 = blob2->bounding_box();
-  return box1.contains(box2) || box2.contains(box1);
-}

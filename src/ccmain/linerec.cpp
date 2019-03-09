@@ -25,9 +25,10 @@
 #include "lstmrecognizer.h"
 #include "recodebeam.h"
 #endif
-#include "ndminx.h"
 #include "pageres.h"
 #include "tprintf.h"
+
+#include <algorithm>
 
 namespace tesseract {
 
@@ -238,7 +239,7 @@ void Tesseract::LSTMRecognizeWord(const BLOCK& block, ROW *row, WERD_RES *word,
   if (im_data == nullptr) return;
   lstm_recognizer_->RecognizeLine(*im_data, true, classify_debug_level > 0,
                                   kWorstDictCertainty / kCertaintyScale,
-                                  word_box, words);
+                                  word_box, words, lstm_choice_mode);
   delete im_data;
   SearchWords(words);
 }
@@ -279,13 +280,13 @@ void Tesseract::SearchWords(PointerVector<WERD_RES>* words) {
       word->tess_would_adapt = false;
       word->done = true;
       word->tesseract = this;
-      float word_certainty = MIN(word->space_certainty,
+      float word_certainty = std::min(word->space_certainty,
                                  word->best_choice->certainty());
       word_certainty *= kCertaintyScale;
       if (getDict().stopper_debug_level >= 1) {
         tprintf("Best choice certainty=%g, space=%g, scaled=%g, final=%g\n",
                 word->best_choice->certainty(), word->space_certainty,
-                MIN(word->space_certainty, word->best_choice->certainty()) *
+                std::min(word->space_certainty, word->best_choice->certainty()) *
                     kCertaintyScale,
                 word_certainty);
         word->best_choice->print();

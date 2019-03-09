@@ -16,24 +16,20 @@
  ** limitations under the License.
  ******************************************************************************/
 
-#include <stdio.h>
-#include <string.h>
-#include <ctype.h>
-#include <math.h>
+#include <cstdio>
+#include <cstring>
+#include <cctype>
+#include <cmath>
 
 #include "stopper.h"
 #include "ambigs.h"
 #include "ccutil.h"
-#include "const.h"
-#include "danerror.h"
 #include "dict.h"
-#include "efio.h"
 #include "helpers.h"
 #include "matchdefs.h"
 #include "pageres.h"
 #include "params.h"
 #include "ratngs.h"
-#include "scanutils.h"
 #include "unichar.h"
 
 /*----------------------------------------------------------------------------
@@ -178,7 +174,7 @@ bool Dict::NoDangerousAmbig(WERD_CHOICE *best_choice,
       getUnicharAmbigs().replace_ambigs() : getUnicharAmbigs().dang_ambigs();
     if (!replace) {
       // Initialize ambig_blob_choices with lists containing a single
-      // unichar id for the correspoding position in best_choice.
+      // unichar id for the corresponding position in best_choice.
       // best_choice consisting from only the original letters will
       // have a rating of 0.0.
       for (i = 0; i < best_choice->length(); ++i) {
@@ -464,12 +460,12 @@ int Dict::LengthOfShortestAlphaRun(const WERD_CHOICE &WordChoice) const {
 
 int Dict::UniformCertainties(const WERD_CHOICE& word) {
   float Certainty;
-  float WorstCertainty = MAX_FLOAT32;
+  float WorstCertainty = FLT_MAX;
   float CertaintyThreshold;
-  FLOAT64 TotalCertainty;
-  FLOAT64 TotalCertaintySquared;
-  FLOAT64 Variance;
-  FLOAT32 Mean, StdDev;
+  double TotalCertainty;
+  double TotalCertaintySquared;
+  double Variance;
+  float Mean, StdDev;
   int word_length = word.length();
 
   if (word_length < 3)
@@ -479,7 +475,7 @@ int Dict::UniformCertainties(const WERD_CHOICE& word) {
   for (int i = 0; i < word_length; ++i) {
     Certainty = word.certainty(i);
     TotalCertainty += Certainty;
-    TotalCertaintySquared += Certainty * Certainty;
+    TotalCertaintySquared += static_cast<double>(Certainty) * Certainty;
     if (Certainty < WorstCertainty)
       WorstCertainty = Certainty;
   }
@@ -487,7 +483,7 @@ int Dict::UniformCertainties(const WERD_CHOICE& word) {
   // Subtract off worst certainty from statistics.
   word_length--;
   TotalCertainty -= WorstCertainty;
-  TotalCertaintySquared -= WorstCertainty * WorstCertainty;
+  TotalCertaintySquared -= static_cast<double>(WorstCertainty) * WorstCertainty;
 
   Mean = TotalCertainty / word_length;
   Variance = ((word_length * TotalCertaintySquared -

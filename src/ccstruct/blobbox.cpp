@@ -1,8 +1,8 @@
 /**********************************************************************
  * File:        blobbox.cpp  (Formerly blobnbox.c)
  * Description: Code for the textord blob class.
- * Author:          Ray Smith
- * Created:         Thu Jul 30 09:08:51 BST 1992
+ * Author:      Ray Smith
+ * Created:     Thu Jul 30 09:08:51 BST 1992
  *
  * (C) Copyright 1992, Hewlett-Packard Ltd.
  ** Licensed under the Apache License, Version 2.0 (the "License");
@@ -23,13 +23,19 @@
 #endif
 
 #include "blobbox.h"
-#include "allheaders.h"
-#include "blobs.h"
-#include "helpers.h"
-#include "normalis.h"
+#include <algorithm>     // for max, min
+#include <cstdint>       // for INT32_MAX, INT16_MAX
+#include "allheaders.h"  // for pixGetHeight, pixGetPixel
+#include "blobs.h"       // for TPOINT
+#include "coutln.h"      // for C_OUTLINE_IT, C_OUTLINE, C_OUTLINE_LIST
+#include "environ.h"     // for l_uint32
+#include "helpers.h"     // for UpdateRange, IntCastRounded
+#include "host.h"        // for NearlyEqual, TRUE
+#include "points.h"      // for operator+=, ICOORD::rotate
+
+struct Pix;
 
 #define PROJECTION_MARGIN 10     //arbitrary
-#define EXTERN
 
 ELISTIZE(BLOBNBOX)
 ELIST2IZE(TO_ROW)
@@ -96,7 +102,7 @@ void BLOBNBOX::merge(                    //merge blobs
 // Merge this with other, taking the outlines from other.
 // Other is not deleted, but left for the caller to handle.
 void BLOBNBOX::really_merge(BLOBNBOX* other) {
-  if (cblob_ptr != nullptr && other->cblob_ptr != nullptr) {
+  if (other->cblob_ptr != nullptr) {
     C_OUTLINE_IT ol_it(cblob_ptr->out_list());
     ol_it.add_list_after(other->cblob_ptr->out_list());
   }
@@ -194,14 +200,14 @@ void BLOBNBOX::NeighbourGaps(int gaps[BND_COUNT]) const {
 // and avoid reporting the other gap as a ridiculously large number
 void BLOBNBOX::MinMaxGapsClipped(int* h_min, int* h_max,
                                  int* v_min, int* v_max) const {
-  int max_dimension = MAX(box.width(), box.height());
+  int max_dimension = std::max(box.width(), box.height());
   int gaps[BND_COUNT];
   NeighbourGaps(gaps);
-  *h_min = MIN(gaps[BND_LEFT], gaps[BND_RIGHT]);
-  *h_max = MAX(gaps[BND_LEFT], gaps[BND_RIGHT]);
+  *h_min = std::min(gaps[BND_LEFT], gaps[BND_RIGHT]);
+  *h_max = std::max(gaps[BND_LEFT], gaps[BND_RIGHT]);
   if (*h_max > max_dimension && *h_min < max_dimension) *h_max = *h_min;
-  *v_min = MIN(gaps[BND_ABOVE], gaps[BND_BELOW]);
-  *v_max = MAX(gaps[BND_ABOVE], gaps[BND_BELOW]);
+  *v_min = std::min(gaps[BND_ABOVE], gaps[BND_BELOW]);
+  *v_max = std::max(gaps[BND_ABOVE], gaps[BND_BELOW]);
   if (*v_max > max_dimension && *v_min < max_dimension) *v_max = *v_min;
 }
 
@@ -818,8 +824,8 @@ void TO_ROW::compute_vertical_projection() {  //project whole row
  * Zero out all scalar members.
  **********************************************************************/
 void TO_ROW::clear() {
-  all_caps = 0;
-  used_dm_model = 0;
+  all_caps = false;
+  used_dm_model = false;
   projection_left = 0;
   projection_right = 0;
   pitch_decision = PITCH_DUNNO;

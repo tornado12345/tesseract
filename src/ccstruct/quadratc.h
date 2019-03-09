@@ -1,8 +1,8 @@
 /**********************************************************************
  * File:        quadratc.h  (Formerly quadrtic.h)
  * Description: Code for the QUAD_COEFFS class.
- * Author:		Ray Smith
- * Created:		Tue Oct 08 17:24:40 BST 1991
+ * Author:      Ray Smith
+ * Created:     Tue Oct 08 17:24:40 BST 1991
  *
  * (C) Copyright 1991, Hewlett-Packard Ltd.
  ** Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,16 +17,15 @@
  *
  **********************************************************************/
 
-#ifndef           QUADRATC_H
-#define           QUADRATC_H
+#ifndef QUADRATC_H
+#define QUADRATC_H
 
-#include          "points.h"
+#include "points.h"
 
 class QUAD_COEFFS
 {
   public:
-    QUAD_COEFFS() {
-    }                            //empty constructor
+    QUAD_COEFFS() = default;
     QUAD_COEFFS(             //constructor
                 double xsq,  //coefficients
                 float x,

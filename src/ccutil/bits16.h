@@ -1,8 +1,8 @@
 /**********************************************************************
  * File:        bits16.h  (Formerly bits8.h)
  * Description: Code for 8 bit field class.
- * Author:					Phil Cheatle
- * Created:					Thu Oct 17 10:10:05 BST 1991
+ * Author:      Phil Cheatle
+ * Created:     Thu Oct 17 10:10:05 BST 1991
  *
  * (C) Copyright 1991, Hewlett-Packard Ltd.
  ** Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,8 +17,8 @@
  *
  **********************************************************************/
 
-#ifndef           BITS16_H
-#define           BITS16_H
+#ifndef BITS16_H
+#define BITS16_H
 
 #include "host.h"
 
@@ -46,15 +46,15 @@ class DLLSYM BITS16
     }
 
     void set_bit(                // flip specified bit
-                 uint8_t bit_num,  // bit to flip 0..7
-                 BOOL8 value) {  // value to flip to
+            uint8_t bit_num,  // bit to flip 0..7
+            bool value) {  // value to flip to
       if (value)
         val = val | 01 << bit_num;
       else
         val = val & ~(01 << bit_num);
     }
 
-    BOOL8 bit(                        // access bit
+    bool bit(                        // access bit
               uint8_t bit_num) const {  // bit to access
       return (val >> bit_num) & 01;
     }

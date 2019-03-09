@@ -63,7 +63,7 @@ class CHAR_FRAGMENT {
     set_natural(natural);
   }
   inline void set_unichar(const char *uch) {
-    strncpy(this->unichar, uch, UNICHAR_LEN);
+    strncpy(this->unichar, uch, sizeof(this->unichar));
     this->unichar[UNICHAR_LEN] = '\0';
   }
   inline void set_pos(int p) { this->pos = p; }
@@ -354,15 +354,13 @@ class UNICHARSET {
   // Returns true if the operation is successful.
   bool save_to_file(FILE *file) const {
     STRING str;
-    if (!save_to_string(&str)) return false;
-    if (fwrite(&str[0], str.length(), 1, file) != 1) return false;
-    return true;
+    return save_to_string(&str) &&
+           tesseract::Serialize(file, &str[0], str.length());
   }
+
   bool save_to_file(tesseract::TFile *file) const {
     STRING str;
-    if (!save_to_string(&str)) return false;
-    if (file->FWrite(&str[0], str.length(), 1) != 1) return false;
-    return true;
+    return save_to_string(&str) && file->Serialize(&str[0], str.length());
   }
 
   // Saves the content of the UNICHARSET to the given STRING.
@@ -913,7 +911,7 @@ class UNICHARSET {
     // Sets all ranges to empty. Used before expanding with font-based data.
     void SetRangesEmpty();
     // Returns true if any of the top/bottom/width/bearing/advance ranges/stats
-    // is emtpy.
+    // is empty.
     bool AnyRangeEmpty() const;
     // Expands the ranges with the ranges from the src properties.
     void ExpandRangesFrom(const UNICHAR_PROPERTIES& src);

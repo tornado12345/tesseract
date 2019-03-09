@@ -2,7 +2,6 @@
  ** Filename: clusttool.h
  ** Purpose:  Definition of clustering utility tools
  ** Author:   Dan Johnson
- ** History:  6/6/89, DSJ, Created.
  **
  ** (c) Copyright Hewlett-Packard Company, 1988.
  ** Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,7 +19,7 @@
 #define TESSERACT_CLASSIFY_CLUSTTOOL_H_
 
 //--------------------------Include Files---------------------------------------
-#include <stdio.h>
+#include <cstdio>
 #include "cluster.h"
 #include "host.h"
 #include "serialis.h"
@@ -34,31 +33,18 @@ PARAM_DESC *ReadParamDesc(tesseract::TFile *fp, uint16_t N);
 
 PROTOTYPE *ReadPrototype(tesseract::TFile *fp, uint16_t N);
 
-FLOAT32 *ReadNFloats(tesseract::TFile *fp, uint16_t N, FLOAT32 Buffer[]);
+float *ReadNFloats(tesseract::TFile *fp, uint16_t N, float Buffer[]);
 
 void WriteParamDesc(FILE *File, uint16_t N, const PARAM_DESC ParamDesc[]);
 
 void WritePrototype(FILE *File, uint16_t N, PROTOTYPE *Proto);
 
-void WriteNFloats (FILE * File, uint16_t N, FLOAT32 Array[]);
+void WriteNFloats (FILE * File, uint16_t N, float Array[]);
 
 void WriteProtoStyle(FILE *File, PROTOSTYLE ProtoStyle);
 
-void WriteProtoList(FILE *File, uint16_t N, PARAM_DESC ParamDesc[],
-                    LIST ProtoList, BOOL8 WriteSigProtos,
-                    BOOL8 WriteInsigProtos);
+void WriteProtoList(FILE* File, uint16_t N, PARAM_DESC* ParamDesc,
+                    LIST ProtoList, bool WriteSigProtos,
+                    bool WriteInsigProtos);
 
-//--------------Global Data Definitions and Declarations---------------------
-// define errors that can be trapped
-#define ILLEGALSAMPLESIZE 5000
-#define ILLEGALCIRCULARSPEC 5001
-#define ILLEGALMINMAXSPEC 5002
-#define ILLEGALSIGNIFICANCESPEC 5003
-#define ILLEGALSTYLESPEC  5004
-#define ILLEGALSAMPLECOUNT  5005
-#define ILLEGALMEANSPEC 5006
-#define ILLEGALVARIANCESPEC 5007
-#define ILLEGALDISTRIBUTION 5008
-#define ILLEGALFLOAT  5009
-#define ILLEGALESSENTIALSPEC  5013
 #endif  // TESSERACT_CLASSIFY_CLUSTTOOL_H_

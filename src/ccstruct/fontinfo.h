@@ -21,15 +21,15 @@
 #ifndef TESSERACT_CCSTRUCT_FONTINFO_H_
 #define TESSERACT_CCSTRUCT_FONTINFO_H_
 
+#include <cstdint>         // for uint16_t, uint32_t
+#include <cstdio>          // for FILE
+#include "errcode.h"
 #include "genericvector.h"
-#include "host.h"
 #include "unichar.h"
 
 template <typename T> class UnicityTable;
 
 namespace tesseract {
-
-class BitVector;
 
 // Simple struct to hold a font and a score. The scores come from the low-level
 // integer matcher, so they are in the uint16_t range. Fonts are an index to
@@ -61,7 +61,7 @@ struct FontSpacingInfo {
  */
 struct FontInfo {
   FontInfo() : name(nullptr), properties(0), universal_id(0), spacing_vec(nullptr) {}
-  ~FontInfo() {}
+  ~FontInfo() = default;
 
   // Writes to the given file. Returns false in case of error.
   bool Serialize(FILE* fp) const;

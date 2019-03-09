@@ -1,8 +1,8 @@
 /**********************************************************************
  * File:        coutln.cpp  (Formerly coutline.c)
  * Description: Code for the C_OUTLINE class.
- * Author:                  Ray Smith
- * Created:                 Mon Oct 07 16:01:57 BST 1991
+ * Author:      Ray Smith
+ * Created:     Mon Oct 07 16:01:57 BST 1991
  *
  * (C) Copyright 1991, Hewlett-Packard Ltd.
  ** Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,16 +17,20 @@
  *
  **********************************************************************/
 
-#include <string.h>
-#ifdef __UNIX__
-#include <assert.h>
-#endif
-
 #include "coutln.h"
-
-#include "allheaders.h"
-#include "blobs.h"
-#include "normalis.h"
+#include <algorithm>      // for max, min
+#include <cmath>          // for abs
+#include <cstdlib>        // for abs
+#include <cstring>        // for memset, memcpy, memmove
+#include "allheaders.h"   // for pixSetPixel, pixGetData, pixRasterop, pixGe...
+#include "arrayaccess.h"  // for GET_DATA_BYTE
+#include "blobs.h"        // for TPOINT
+#include "crakedge.h"     // for CRACKEDGE
+#include "environ.h"      // for l_uint32
+#include "errcode.h"      // for ASSERT_HOST
+#include "helpers.h"      // for ClipToRange, IntCastRounded, Modulo
+#include "normalis.h"     // for DENORM
+#include "pix.h"          // for Pix (ptr only), PIX_DST, PIX_NOT
 
 // Include automatically generated configuration file if running autoconf.
 #ifdef HAVE_CONFIG_H
@@ -60,8 +64,7 @@ C_OUTLINE::C_OUTLINE(CRACKEDGE* startpt, ICOORD bot_left, ICOORD top_right,
     return;
   }
                                  //get memory
-  steps = (uint8_t *) alloc_mem (step_mem());
-  memset(steps, 0, step_mem());
+  steps = (uint8_t *)calloc(step_mem(), 1);
   edgept = startpt;
 
   for (stepindex = 0; stepindex < length; stepindex++) {
@@ -94,8 +97,7 @@ int16_t length                     //length of loop
   pos = startpt;
   stepcount = length;            // No. of steps.
   ASSERT_HOST(length >= 0);
-  steps = static_cast<uint8_t*>(alloc_mem(step_mem()));  // Get memory.
-  memset(steps, 0, step_mem());
+  steps = static_cast<uint8_t*>(calloc(step_mem(), 1));  // Get memory.
 
   lastdir = new_steps[length - 1];
   prevdir = lastdir;
@@ -139,14 +141,14 @@ int16_t length                     //length of loop
  */
 
 C_OUTLINE::C_OUTLINE(C_OUTLINE* srcline, FCOORD rotation) : offsets(nullptr) {
-  TBOX new_box;                   //easy bounding
-  int16_t stepindex;               //index to step
-  int16_t dirdiff;                 //direction change
+  TBOX new_box;                  //easy bounding
+  int16_t stepindex;             //index to step
+  int16_t dirdiff;               //direction change
   ICOORD pos;                    //current position
   ICOORD prevpos;                //previous dest point
 
   ICOORD destpos;                //destination point
-  int16_t destindex;               //index to step
+  int16_t destindex = INT16_MAX; //index to step
   DIR128 dir;                    //coded direction
   uint8_t new_step;
 
@@ -158,8 +160,7 @@ C_OUTLINE::C_OUTLINE(C_OUTLINE* srcline, FCOORD rotation) : offsets(nullptr) {
     return;
   }
                                  //get memory
-  steps = (uint8_t *) alloc_mem (step_mem());
-  memset(steps, 0, step_mem());
+  steps = (uint8_t *)calloc(step_mem(), 1);
 
   for (int iteration = 0; iteration < 2; ++iteration) {
     DIR128 round1 = iteration == 0 ? 32 : 0;
@@ -338,12 +339,12 @@ int32_t C_OUTLINE::outer_area() const {
  */
 
 int32_t C_OUTLINE::count_transitions(int32_t threshold) {
-  BOOL8 first_was_max_x;         //what was first
-  BOOL8 first_was_max_y;
-  BOOL8 looking_for_max_x;       //what is next
-  BOOL8 looking_for_min_x;
-  BOOL8 looking_for_max_y;       //what is next
-  BOOL8 looking_for_min_y;
+  bool first_was_max_x;         //what was first
+  bool first_was_max_y;
+  bool looking_for_max_x;       //what is next
+  bool looking_for_min_x;
+  bool looking_for_max_y;       //what is next
+  bool looking_for_min_y;
   int stepindex;                 //current step
   int32_t total_steps;             //steps to do
                                  //current limits
@@ -353,77 +354,77 @@ int32_t C_OUTLINE::count_transitions(int32_t threshold) {
   ICOORD pos;                    //position of point
   ICOORD next_step;              //step to next pix
 
-  pos = start_pos ();
-  total_steps = pathlength ();
+  pos = start_pos();
+  total_steps = pathlength();
   total = 0;
-  max_x = min_x = pos.x ();
-  max_y = min_y = pos.y ();
-  looking_for_max_x = TRUE;
-  looking_for_min_x = TRUE;
-  looking_for_max_y = TRUE;
-  looking_for_min_y = TRUE;
-  first_was_max_x = FALSE;
-  first_was_max_y = FALSE;
-  initial_x = pos.x ();
-  initial_y = pos.y ();          //stop uninit warning
+  max_x = min_x = pos.x();
+  max_y = min_y = pos.y();
+  looking_for_max_x = true;
+  looking_for_min_x = true;
+  looking_for_max_y = true;
+  looking_for_min_y = true;
+  first_was_max_x = false;
+  first_was_max_y = false;
+  initial_x = pos.x();
+  initial_y = pos.y();          //stop uninit warning
   for (stepindex = 0; stepindex < total_steps; stepindex++) {
                                  //all intersected
-    next_step = step (stepindex);
+    next_step = step(stepindex);
     pos += next_step;
-    if (next_step.x () < 0) {
-      if (looking_for_max_x && pos.x () < min_x)
-        min_x = pos.x ();
-      if (looking_for_min_x && max_x - pos.x () > threshold) {
+    if (next_step.x() < 0) {
+      if (looking_for_max_x && pos.x() < min_x)
+        min_x = pos.x();
+      if (looking_for_min_x && max_x - pos.x() > threshold) {
         if (looking_for_max_x) {
           initial_x = max_x;
-          first_was_max_x = FALSE;
+          first_was_max_x = false;
         }
         total++;
-        looking_for_max_x = TRUE;
-        looking_for_min_x = FALSE;
-        min_x = pos.x ();        //reset min
+        looking_for_max_x = true;
+        looking_for_min_x = false;
+        min_x = pos.x();        //reset min
       }
     }
-    else if (next_step.x () > 0) {
-      if (looking_for_min_x && pos.x () > max_x)
-        max_x = pos.x ();
-      if (looking_for_max_x && pos.x () - min_x > threshold) {
+    else if (next_step.x() > 0) {
+      if (looking_for_min_x && pos.x() > max_x)
+        max_x = pos.x();
+      if (looking_for_max_x && pos.x() - min_x > threshold) {
         if (looking_for_min_x) {
           initial_x = min_x;     //remember first min
-          first_was_max_x = TRUE;
+          first_was_max_x = true;
         }
         total++;
-        looking_for_max_x = FALSE;
-        looking_for_min_x = TRUE;
-        max_x = pos.x ();
+        looking_for_max_x = false;
+        looking_for_min_x = true;
+        max_x = pos.x();
       }
     }
-    else if (next_step.y () < 0) {
-      if (looking_for_max_y && pos.y () < min_y)
-        min_y = pos.y ();
-      if (looking_for_min_y && max_y - pos.y () > threshold) {
+    else if (next_step.y() < 0) {
+      if (looking_for_max_y && pos.y() < min_y)
+        min_y = pos.y();
+      if (looking_for_min_y && max_y - pos.y() > threshold) {
         if (looking_for_max_y) {
           initial_y = max_y;     //remember first max
-          first_was_max_y = FALSE;
+          first_was_max_y = false;
         }
         total++;
-        looking_for_max_y = TRUE;
-        looking_for_min_y = FALSE;
-        min_y = pos.y ();        //reset min
+        looking_for_max_y = true;
+        looking_for_min_y = false;
+        min_y = pos.y();        //reset min
       }
     }
     else {
-      if (looking_for_min_y && pos.y () > max_y)
-        max_y = pos.y ();
-      if (looking_for_max_y && pos.y () - min_y > threshold) {
+      if (looking_for_min_y && pos.y() > max_y)
+        max_y = pos.y();
+      if (looking_for_max_y && pos.y() - min_y > threshold) {
         if (looking_for_min_y) {
           initial_y = min_y;     //remember first min
-          first_was_max_y = TRUE;
+          first_was_max_y = true;
         }
         total++;
-        looking_for_max_y = FALSE;
-        looking_for_min_y = TRUE;
-        max_y = pos.y ();
+        looking_for_max_y = false;
+        looking_for_min_y = true;
+        max_y = pos.y();
       }
     }
 
@@ -463,14 +464,14 @@ int32_t C_OUTLINE::count_transitions(int32_t threshold) {
  * @param other other outline
  */
 
-BOOL8
+bool
 C_OUTLINE::operator<(const C_OUTLINE& other) const {
   int16_t count = 0;               //winding count
   ICOORD pos;                    //position of point
   int32_t stepindex;               //index to cstep
 
   if (!box.overlap (other.box))
-    return FALSE;                //can't be contained
+    return false;                //can't be contained
   if (stepcount == 0)
     return other.box.contains(this->box);
 
@@ -750,7 +751,7 @@ void C_OUTLINE::ComputeEdgeOffsets(int threshold, Pix* pix) {
     if (pt1.y == pt2.y && abs(gradient.y()) * 2 >= abs(gradient.x())) {
       // Horizontal step. diff_sign == 1 indicates black above.
       int diff_sign = (pt1.x > pt2.x) == negative ? 1 : -1;
-      int x = MIN(pt1.x, pt2.x);
+      int x = std::min(pt1.x, pt2.x);
       int y = height - pt1.y;
       int best_sum = 0;
       int best_y = y;
@@ -773,7 +774,7 @@ void C_OUTLINE::ComputeEdgeOffsets(int threshold, Pix* pix) {
       // Vertical step. diff_sign == 1 indicates black on the left.
       int diff_sign = (pt1.y > pt2.y) == negative ? 1 : -1;
       int x = pt1.x;
-      int y = height - MAX(pt1.y, pt2.y);
+      int y = height - std::max(pt1.y, pt2.y);
       const l_uint32* line = pixGetData(pix) + y * wpl;
       int best_sum = 0;
       int best_x = x;
@@ -1010,10 +1011,9 @@ void C_OUTLINE::plot_normed(const DENORM& denorm, ScrollView::Color colour,
 C_OUTLINE& C_OUTLINE::operator=(const C_OUTLINE& source) {
   box = source.box;
   start = source.start;
-  if (steps != nullptr)
-    free_mem(steps);
+  free(steps);
   stepcount = source.stepcount;
-  steps = (uint8_t *) alloc_mem (step_mem());
+  steps = (uint8_t *)malloc(step_mem());
   memmove (steps, source.steps, step_mem());
   if (!children.empty ())
     children.clear ();

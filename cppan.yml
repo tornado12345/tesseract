@@ -25,7 +25,7 @@ common_settings:
 
     options:
         any:
-            compiler_options:
+            compile_options:
                 msvc:
                     private:
                         - /openmp
@@ -64,8 +64,6 @@ projects:
           - src/viewer/.*\.h
           - src/wordrec/.*\.h
 
-          - src/vs2010/port/.*
-
         exclude_from_build:
           - src/api/tesseractmain.cpp
           - src/viewer/svpaint.cpp
@@ -81,7 +79,6 @@ projects:
             - src/lstm
             - src/opencl
             - src/textord
-            - src/vs2010/port
             - src/viewer
             - src/wordrec
           #public:
@@ -89,12 +86,6 @@ projects:
             - src/ccmain
             - src/ccstruct
             - src/ccutil
-
-        check_function_exists:
-          - getline
-
-        check_symbol_exists:
-          snprintf: stdio.h
 
         check_include_exists:
           - dlfcn.h
@@ -143,8 +134,6 @@ projects:
                         ${SDIR}/src/arch/intsimdmatrixavx2.cpp
                         PROPERTIES COMPILE_FLAGS "/arch:AVX2")
                 endif()
-            else()
-                remove_src_dir(src/vs2010/port/*)
             endif()
 
         options:
@@ -236,7 +225,7 @@ projects:
         static_only: true
         files:
             - src/training/fileio.*
-            - src/training/icuerrorcode.h
+            - src/training/icuerrorcode.*
             - src/training/lang_model_helpers.*
             - src/training/lstmtester.*
             - src/training/normstrngs.*
@@ -277,7 +266,6 @@ projects:
             - src/training/tlog.cpp
             - src/training/tlog.h
             - src/training/util.h
-            - src/training/icuerrorcode.h
 
         dependencies:
             - unicharset_training

@@ -28,8 +28,8 @@
  *
  **********************************************************************/
 
-#include <stdlib.h>
-#include <string.h>
+#include <cstdlib>
+#include <cstring>
 #include <algorithm>
 #include <iostream>
 #include <map>
@@ -50,6 +50,9 @@
 #include "tlog.h"
 #include "unicharset.h"
 #include "util.h"
+#ifdef _MSC_VER
+#  define putenv(s) _putenv(s)
+#endif
 
 // A number with which to initialize the random number generator.
 const int kRandomSeed = 0x18273645;
@@ -70,6 +73,28 @@ BOOL_PARAM_FLAG(rotate_image, true, "Rotate the image in a random way.");
 
 // Degradation to apply to the image.
 INT_PARAM_FLAG(exposure, 0, "Exposure level in photocopier");
+
+// Distort the rendered image by various means according to the bool flags.
+BOOL_PARAM_FLAG(distort_image, false,
+                "Degrade rendered image with noise, blur, invert.");
+
+// Distortion to apply to the image.
+BOOL_PARAM_FLAG(invert, true, "Invert the image");
+
+// Distortion to apply to the image.
+BOOL_PARAM_FLAG(white_noise, true, "Add  Gaussian Noise");
+
+// Distortion to apply to the image.
+BOOL_PARAM_FLAG(smooth_noise, true, "Smoothen Noise");
+
+// Distortion to apply to the image.
+BOOL_PARAM_FLAG(blur, true, "Blur the image");
+
+// Distortion to apply to the image.
+//BOOL_PARAM_FLAG(perspective, false, "Generate Perspective Distortion");
+
+// Distortion to apply to the image.
+//INT_PARAM_FLAG(box_reduction, 0, "Integer reduction factor box_scale");
 
 // Output image resolution.
 INT_PARAM_FLAG(resolution, 300, "Pixels per inch");
@@ -208,9 +233,9 @@ static std::string StringReplace(const std::string& in,
 // with "T", such that "AT" has spacing of -5, the entry/line for unichar "A"
 // in .fontinfo file will be:
 // A 0 -1 T -5 V -7
-void ExtractFontProperties(const std::string &utf8_text,
-                           StringRenderer *render,
-                           const std::string &output_base) {
+static void ExtractFontProperties(const std::string &utf8_text,
+                                  StringRenderer *render,
+                                  const std::string &output_base) {
   std::map<std::string, SpacingProperties> spacing_map;
   std::map<std::string, SpacingProperties>::iterator spacing_map_it0;
   std::map<std::string, SpacingProperties>::iterator spacing_map_it1;
@@ -308,9 +333,8 @@ void ExtractFontProperties(const std::string &utf8_text,
   File::WriteStringToFileOrDie(output_string, output_base + ".fontinfo");
 }
 
-bool MakeIndividualGlyphs(Pix* pix,
-                          const std::vector<BoxChar*>& vbox,
-                          const int input_tiff_page) {
+static bool MakeIndividualGlyphs(Pix* pix, const std::vector<BoxChar*>& vbox,
+                                 const int input_tiff_page) {
   // If checks fail, return false without exiting text2image
   if (!pix) {
     tprintf("ERROR: MakeIndividualGlyphs(): Input Pix* is nullptr\n");
@@ -417,7 +441,13 @@ static int Main() {
   if (FLAGS_list_available_fonts) {
     const std::vector<std::string>& all_fonts = FontUtils::ListAvailableFonts();
     for (unsigned int i = 0; i < all_fonts.size(); ++i) {
-      printf("%3u: %s\n", i, all_fonts[i].c_str());
+      // Remove trailing comma: pango-font-description-to-string adds a comma
+      // to some fonts.
+      // See https://github.com/tesseract-ocr/tesseract/issues/408
+      std::string font_name(all_fonts[i].c_str());
+      if (font_name.back() == ',')
+        font_name.pop_back();
+      printf("%3u: %s\n", i, font_name.c_str());
       ASSERT_HOST_MSG(FontUtils::IsAvailableFont(all_fonts[i].c_str()),
                       "Font %s is unrecognized.\n", all_fonts[i].c_str());
     }
@@ -438,12 +468,14 @@ static int Main() {
     exit(1);
   }
 
-  if (!FLAGS_find_fonts && !FontUtils::IsAvailableFont(FLAGS_font.c_str())) {
+  std::string font_name = FLAGS_font.c_str();
+  if (!FLAGS_find_fonts && !FontUtils::IsAvailableFont(font_name.c_str())) {
+    font_name += ',';
     std::string pango_name;
-    if (!FontUtils::IsAvailableFont(FLAGS_font.c_str(), &pango_name)) {
-      tprintf("Could not find font named %s.\n", FLAGS_font.c_str());
+    if (!FontUtils::IsAvailableFont(font_name.c_str(), &pango_name)) {
+      tprintf("Could not find font named '%s'.\n", FLAGS_font.c_str());
       if (!pango_name.empty()) {
-        tprintf("Pango suggested font %s.\n", pango_name.c_str());
+        tprintf("Pango suggested font '%s'.\n", pango_name.c_str());
       }
       tprintf("Please correct --font arg.\n");
       exit(1);
@@ -454,8 +486,9 @@ static int Main() {
     FLAGS_output_word_boxes = true;
 
   char font_desc_name[1024];
-  snprintf(font_desc_name, 1024, "%s %d", FLAGS_font.c_str(),
-           static_cast<int>(FLAGS_ptsize));
+  snprintf(font_desc_name, 1024, "%s %d", font_name.c_str(),
+            static_cast<int>(FLAGS_ptsize));
+
   StringRenderer render(font_desc_name, FLAGS_xsize, FLAGS_ysize);
   render.set_add_ligatures(FLAGS_ligatures);
   render.set_leading(FLAGS_leading);
@@ -608,6 +641,12 @@ static int Main() {
           pix = DegradeImage(pix, FLAGS_exposure, &randomizer,
                              FLAGS_rotate_image ? &rotation : nullptr);
         }
+        if (FLAGS_distort_image) {
+         //TODO: perspective is set to false and box_reduction to 1.
+          pix = PrepareDistortedPix(pix, false, FLAGS_invert,
+                             FLAGS_white_noise, FLAGS_smooth_noise, FLAGS_blur,
+                             1, &randomizer, nullptr);
+        }
         render.RotatePageBoxes(rotation);
 
         if (pass == 0) {
@@ -673,7 +712,26 @@ static int Main() {
 }
 
 int main(int argc, char** argv) {
+  // Respect environment variable. could be:
+  // fc (fontconfig), win32, and coretext
+  // If not set force fontconfig for Mac OS.
+  // See https://github.com/tesseract-ocr/tesseract/issues/736
+  char* backend;
+  backend = getenv("PANGOCAIRO_BACKEND");
+  if (backend == nullptr) {
+    static char envstring[] = "PANGOCAIRO_BACKEND=fc";
+    putenv(envstring);
+  } else {
+    printf("Using '%s' as pango cairo backend based on environment "
+           "variable.\n", backend);
+  }
   tesseract::CheckSharedLibraryVersion();
+  if (argc > 1) {
+    if ((strcmp(argv[1], "-v") == 0) ||
+      (strcmp(argv[1], "--version") == 0)) {
+    FontUtils::PangoFontTypeInfo();
+    }
+  }
   tesseract::ParseCommandLineFlags(argv[0], &argc, &argv, true);
   return Main();
 }

@@ -20,15 +20,14 @@
 #define TESSERACT_CUTIL_CUTIL_CLASS_H_
 
 #include "ccutil.h"
-#include "const.h"
 #include "strngs.h"
 
 namespace tesseract {
 
 class CUtil : public CCUtil {
  public:
-  CUtil();
-  ~CUtil();
+  CUtil() = default;
+  virtual ~CUtil();
   void read_variables(const char *filename, bool global_only);
 };
 

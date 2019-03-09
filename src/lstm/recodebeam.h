@@ -3,7 +3,6 @@
 // Description: Beam search to decode from the re-encoded CJK as a sequence of
 //              smaller numbers in place of a single large code.
 // Author:      Ray Smith
-// Created:     Fri Mar 13 09:12:01 PDT 2015
 //
 // (C) Copyright 2015, Google Inc.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -28,6 +27,9 @@
 #include "networkio.h"
 #include "ratngs.h"
 #include "unicharcompress.h"
+#include <deque>
+#include <set>
+#include <vector>
 
 namespace tesseract {
 
@@ -169,8 +171,8 @@ struct RecodeNode {
   uint64_t code_hash;
 };
 
-typedef KDPairInc<double, RecodeNode> RecodePair;
-typedef GenericHeap<RecodePair> RecodeHeap;
+using RecodePair = KDPairInc<double, RecodeNode>;
+using RecodeHeap = GenericHeap<RecodePair>;
 
 // Class that holds the entire beam search for recognition of a text line.
 class RecodeBeamSearch {
@@ -182,7 +184,8 @@ class RecodeBeamSearch {
   // Decodes the set of network outputs, storing the lattice internally.
   // If charset is not null, it enables detailed debugging of the beam search.
   void Decode(const NetworkIO& output, double dict_ratio, double cert_offset,
-              double worst_dict_cert, const UNICHARSET* charset);
+              double worst_dict_cert, const UNICHARSET* charset,
+              int lstm_choice_mode = 0);
   void Decode(const GENERIC_2D_ARRAY<float>& output, double dict_ratio,
               double cert_offset, double worst_dict_cert,
               const UNICHARSET* charset);
@@ -201,10 +204,15 @@ class RecodeBeamSearch {
   // Returns the best path as a set of WERD_RES.
   void ExtractBestPathAsWords(const TBOX& line_box, float scale_factor,
                               bool debug, const UNICHARSET* unicharset,
-                              PointerVector<WERD_RES>* words);
+                              PointerVector<WERD_RES>* words,
+                              int lstm_choice_mode = 0);
 
   // Generates debug output of the content of the beams after a Decode.
   void DebugBeams(const UNICHARSET& unicharset) const;
+
+  // Stores the alternative characters of every timestep together with their
+  // probability.
+  std::vector< std::vector<std::pair<const char*, float>>> timesteps;
 
   // Clipping value for certainty inside Tesseract. Reflects the minimum value
   // of certainty that will be returned by ExtractBestPathAsUnicharIds.
@@ -262,7 +270,7 @@ class RecodeBeamSearch {
     // all of the step.
     RecodeNode best_initial_dawgs_[NC_COUNT];
   };
-  typedef KDPairInc<float, int> TopPair;
+  using TopPair = KDPairInc<float, int>;
 
   // Generates debug output of the content of a single beam position.
   void DebugBeamPos(const UNICHARSET& unicharset, const RecodeHeap& heap) const;
@@ -272,7 +280,8 @@ class RecodeBeamSearch {
   static void ExtractPathAsUnicharIds(
       const GenericVector<const RecodeNode*>& best_nodes,
       GenericVector<int>* unichar_ids, GenericVector<float>* certs,
-      GenericVector<float>* ratings, GenericVector<int>* xcoords);
+      GenericVector<float>* ratings, GenericVector<int>* xcoords,
+      std::deque<std::pair<int,int>>* best_choices = nullptr);
 
   // Sets up a word with the ratings matrix and fake blobs with boxes in the
   // right places.
@@ -291,7 +300,10 @@ class RecodeBeamSearch {
   // for the current timestep.
   void DecodeStep(const float* outputs, int t, double dict_ratio,
                   double cert_offset, double worst_dict_cert,
-                  const UNICHARSET* charset);
+                  const UNICHARSET* charset, bool debug = false);
+
+  //Saves the most certain choices for the current time-step
+  void SaveMostCertainChoices(const float* outputs, int num_outputs, const UNICHARSET* charset, int xCoord);
 
   // Adds to the appropriate beams the legal (according to recoder)
   // continuations of context prev, which is from the given index to beams_,

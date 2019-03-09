@@ -23,12 +23,13 @@
 
 #include "bbgrid.h"
 #include "blobbox.h"       // For BlobRegionType.
-#include "ndminx.h"
 #include "ocrblock.h"
 #include "rect.h"           // For TBOX.
 #include "scrollview.h"
 #include "tabfind.h"        // For WidthCallback.
 #include "tabvector.h"      // For BLOBNBOX_CLIST.
+
+#include <algorithm>
 
 namespace tesseract {
 
@@ -66,11 +67,11 @@ CLISTIZEH(ColPartition)
  */
 class ColPartition : public ELIST2_LINK {
  public:
-  ColPartition() {
-    // This empty constructor is here only so that the class can be ELISTIZED.
-    // TODO(rays) change deep_copy in elst.h line 955 to take a callback copier
-    // and eliminate CLASSNAME##_copier.
-  }
+  // This empty constructor is here only so that the class can be ELISTIZED.
+  // TODO(rays) change deep_copy in elst.h line 955 to take a callback copier
+  // and eliminate CLASSNAME##_copier.
+  ColPartition() = default;
+
   /**
    * @param blob_type is the blob_region_type_ of the blobs in this partition.
    * @param vertical is the direction of logical vertical on the possibly skewed image.
@@ -133,11 +134,11 @@ class ColPartition : public ELIST2_LINK {
   int median_right() const {
     return median_right_;
   }
-  int median_size() const {
-    return median_size_;
+  int median_height() const {
+    return median_height_;
   }
-  void set_median_size(int size) {
-    median_size_ = size;
+  void set_median_height(int height) {
+    median_height_ = height;
   }
   int median_width() const {
     return median_width_;
@@ -373,20 +374,26 @@ class ColPartition : public ELIST2_LINK {
   // Returns the vertical overlap (by median) of this and other.
   // WARNING! Only makes sense on horizontal partitions!
   int VCoreOverlap(const ColPartition& other) const {
-    return MIN(median_top_, other.median_top_) -
-           MAX(median_bottom_, other.median_bottom_);
+    if (median_bottom_ == INT32_MAX || other.median_bottom_ == INT32_MAX) {
+      return 0;
+    }
+    return std::min(median_top_, other.median_top_) -
+            std::max(median_bottom_, other.median_bottom_);
   }
   // Returns the horizontal overlap (by median) of this and other.
   // WARNING! Only makes sense on vertical partitions!
   int HCoreOverlap(const ColPartition& other) const {
-    return MIN(median_right_, other.median_right_) -
-           MAX(median_left_, other.median_left_);
+    return std::min(median_right_, other.median_right_) -
+            std::max(median_left_, other.median_left_);
   }
   // Returns true if this and other overlap significantly vertically.
   // WARNING! Only makes sense on horizontal partitions!
   bool VSignificantCoreOverlap(const ColPartition& other) const {
+    if (median_bottom_ == INT32_MAX || other.median_bottom_ == INT32_MAX) {
+      return false;
+    }
     int overlap = VCoreOverlap(other);
-    int height = MIN(median_top_ - median_bottom_,
+    int height = std::min(median_top_ - median_bottom_,
                      other.median_top_ - other.median_bottom_);
     return overlap * 3 > height;
   }
@@ -838,8 +845,7 @@ class ColPartition : public ELIST2_LINK {
   int median_bottom_;
   int median_top_;
   // Median height of blobs in this partition.
-  // TODO(rays) rename median_height_.
-  int median_size_;
+  int median_height_;
   // Median left and right of blobs in this partition.
   int median_left_;
   int median_right_;
@@ -925,9 +931,9 @@ class ColPartition : public ELIST2_LINK {
 };
 
 // Typedef it now in case it becomes a class later.
-typedef GridSearch<ColPartition,
+using ColPartitionGridSearch = GridSearch<ColPartition,
                    ColPartition_CLIST,
-                   ColPartition_C_IT> ColPartitionGridSearch;
+                   ColPartition_C_IT> ;
 
 }  // namespace tesseract.
 

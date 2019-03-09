@@ -20,9 +20,10 @@
 // SVUtil contains the SVSync and SVNetwork classes, which are used for
 // thread/process creation & synchronization and network connection.
 
-#include <stdio.h>
+#include <cstdio>
 #ifdef _WIN32
 #include <windows.h>
+#pragma comment(lib, "Ws2_32.lib")
 struct addrinfo {
   struct sockaddr* ai_addr;
   int ai_addrlen;
@@ -36,9 +37,7 @@ struct addrinfo {
 #include <netinet/in.h>
 #include <pthread.h>
 #include <semaphore.h>
-#include <signal.h>
-#include <stdlib.h>
-#include <string.h>
+#include <csignal>
 #include <sys/select.h>
 #include <sys/socket.h>
 #ifdef __linux__
@@ -50,7 +49,9 @@ struct addrinfo {
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
+#include <memory>
 #include <string>
+#include <vector>
 
 // Include automatically generated configuration file if running autoconf.
 #ifdef HAVE_CONFIG_H
@@ -147,7 +148,7 @@ void SVSync::StartProcess(const char* executable, const char* args) {
         ++argc;
       }
     }
-    char** argv = new char*[argc + 2];
+    std::unique_ptr<char*[]> argv(new char*[argc + 2]);
     argv[0] = strdup(executable);
     argv[1] = mutable_args;
     argc = 2;
@@ -162,10 +163,9 @@ void SVSync::StartProcess(const char* executable, const char* args) {
       }
     }
     argv[argc] = nullptr;
-    execvp(executable, argv);
+    execvp(executable, argv.get());
     free(argv[0]);
     free(argv[1]);
-    delete[] argv;
   }
 #endif
 }
@@ -303,20 +303,23 @@ static std::string ScrollViewCommand(std::string scrollview_path) {
   // this unnecessary.
   // Also the path has to be separated by ; on windows and : otherwise.
 #ifdef _WIN32
-  const char* cmd_template = "-Djava.library.path=%s -jar %s/ScrollView.jar";
+  const char cmd_template[] = "-Djava.library.path=%s -jar %s/ScrollView.jar";
 
 #else
-  const char* cmd_template =
+  const char cmd_template[] =
       "-c \"trap 'kill %%1' 0 1 2 ; java "
       "-Xms1024m -Xmx2048m -jar %s/ScrollView.jar"
       " & wait\"";
 #endif
-  int cmdlen = strlen(cmd_template) + 4*strlen(scrollview_path.c_str()) + 1;
-  char* cmd = new char[cmdlen];
+  size_t cmdlen = sizeof(cmd_template) + 2 * scrollview_path.size() + 1;
+  std::vector<char> cmd(cmdlen);
   const char* sv_path = scrollview_path.c_str();
-  snprintf(cmd, cmdlen, cmd_template, sv_path, sv_path, sv_path, sv_path);
-  std::string command(cmd);
-  delete [] cmd;
+#ifdef _WIN32
+  snprintf(&cmd[0], cmdlen, cmd_template, sv_path, sv_path);
+#else
+  snprintf(&cmd[0], cmdlen, cmd_template, sv_path);
+#endif
+  std::string command(&cmd[0]);
   return command;
 }
 
@@ -365,8 +368,7 @@ static int GetAddrInfoNonLinux(const char* hostname, int port,
 
   // Fill in the appropriate variables to be able to connect to the server.
   address->sin_family = name->h_addrtype;
-  memcpy((char *) &address->sin_addr.s_addr,
-         name->h_addr_list[0], name->h_length);
+  memcpy(&address->sin_addr.s_addr, name->h_addr_list[0], name->h_length);
   address->sin_port = htons(port);
   return 0;
 }
@@ -405,8 +407,10 @@ SVNetwork::SVNetwork(const char* hostname, int port) {
   stream_ = socket(addr_info->ai_family, addr_info->ai_socktype,
                    addr_info->ai_protocol);
 
-  // If server is not there, we will start a new server as local child process.
-  if (connect(stream_, addr_info->ai_addr, addr_info->ai_addrlen) < 0) {
+  if (stream_ < 0) {
+    std::cerr << "Failed to open socket" << std::endl;
+  } else if (connect(stream_, addr_info->ai_addr, addr_info->ai_addrlen) < 0) {
+    // If server is not there, we will start a new server as local child process.
     const char* scrollview_path = getenv("SCROLLVIEW_PATH");
     if (scrollview_path == nullptr) {
 #ifdef SCROLLVIEW_PATH

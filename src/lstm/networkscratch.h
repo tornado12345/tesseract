@@ -3,7 +3,6 @@
 // Description: Scratch space for Network layers that hides distinction
 //              between float/int implementations.
 // Author:      Ray Smith
-// Created:     Thu Jun 19 10:50:29 PST 2014
 //
 // (C) Copyright 2014, Google Inc.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -24,7 +23,6 @@
 #include "matrix.h"
 #include "networkio.h"
 #include "svutil.h"
-#include "tprintf.h"
 
 namespace tesseract {
 
@@ -36,7 +34,7 @@ namespace tesseract {
 class NetworkScratch {
  public:
   NetworkScratch() : int_mode_(false) {}
-  ~NetworkScratch() {}
+  ~NetworkScratch() = default;
 
   // Sets the network representation. If the representation is integer, then
   // default (integer) NetworkIOs are separated from the always-float variety.

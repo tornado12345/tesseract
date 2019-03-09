@@ -24,7 +24,7 @@
 #include "mfdefs.h"
 #include "mfx.h"
 
-#include <math.h>
+#include <cmath>
 
 /*----------------------------------------------------------------------------
         Global Data Definitions and Declarations
@@ -39,8 +39,6 @@
  * @param Blob  blob to extract micro-features from
  * @param cn_denorm  control parameter to feature extractor.
  * @return Micro-features for Blob.
- * @note Exceptions: none
- * @note History: Wed May 23 18:06:38 1990, DSJ, Created.
  */
 FEATURE_SET ExtractMicros(TBLOB* Blob, const DENORM& cn_denorm) {
   int NumFeatures;
@@ -72,7 +70,7 @@ FEATURE_SET ExtractMicros(TBLOB* Blob, const DENORM& cn_denorm) {
     // Assert that feature parameters are well defined.
     int i;
     for (i = 0; i < Feature->Type->NumParams; i++) {
-      ASSERT_HOST(!isnan(Feature->Params[i]));
+      ASSERT_HOST(!std::isnan(Feature->Params[i]));
     }
 #endif
 

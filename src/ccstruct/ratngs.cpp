@@ -24,6 +24,7 @@
 
 #include "ratngs.h"
 
+#include <algorithm>
 #include <string>
 #include "blobs.h"
 #include "callcpp.h"
@@ -128,6 +129,24 @@ BLOB_CHOICE::BLOB_CHOICE(const BLOB_CHOICE &other) : ELIST_LINK(other) {
   fonts_ = other.fonts_;
 }
 
+// Copy assignment operator.
+BLOB_CHOICE& BLOB_CHOICE::operator=(const BLOB_CHOICE& other) {
+  ELIST_LINK::operator=(other);
+  unichar_id_ = other.unichar_id();
+  rating_ = other.rating();
+  certainty_ = other.certainty();
+  fontinfo_id_ = other.fontinfo_id();
+  fontinfo_id2_ = other.fontinfo_id2();
+  script_id_ = other.script_id();
+  matrix_cell_ = other.matrix_cell_;
+  min_xheight_ = other.min_xheight_;
+  max_xheight_ = other.max_xheight_;
+  yshift_ = other.yshift();
+  classifier_ = other.classifier_;
+  fonts_ = other.fonts_;
+  return *this;
+}
+
 // Returns true if *this and other agree on the baseline and x-height
 // to within some tolerance based on a given estimate of the x-height.
 bool BLOB_CHOICE::PosAndSizeAgree(const BLOB_CHOICE& other, float x_height,
@@ -142,10 +161,10 @@ bool BLOB_CHOICE::PosAndSizeAgree(const BLOB_CHOICE& other, float x_height,
   }
   double this_range = max_xheight() - min_xheight();
   double other_range = other.max_xheight() - other.min_xheight();
-  double denominator = ClipToRange(MIN(this_range, other_range),
+  double denominator = ClipToRange(std::min(this_range, other_range),
                                    1.0, kMaxOverlapDenominator * x_height);
-  double overlap = MIN(max_xheight(), other.max_xheight()) -
-                   MAX(min_xheight(), other.min_xheight());
+  double overlap = std::min(max_xheight(), other.max_xheight()) -
+          std::max(min_xheight(), other.min_xheight());
   overlap /= denominator;
   if (debug) {
     tprintf("PosAndSize for %d v %d: bl diff = %g, ranges %g, %g / %g ->%g\n",
@@ -528,12 +547,7 @@ WERD_CHOICE& WERD_CHOICE::operator=(const WERD_CHOICE& source) {
 // to get the target positions. If small_caps is true, sub/super are not
 // considered, but dropcaps are.
 // NOTE: blobs_list should be the chopped_word blobs. (Fully segemented.)
-void WERD_CHOICE::SetScriptPositions(bool small_caps, TWERD* word) {
-  // Since WERD_CHOICE isn't supposed to depend on a Tesseract,
-  // we don't have easy access to the flags Tesseract stores.  Therefore, debug
-  // for this module is hard compiled in.
-  int debug = 0;
-
+void WERD_CHOICE::SetScriptPositions(bool small_caps, TWERD* word, int debug) {
   // Initialize to normal.
   for (int i = 0; i < length_; ++i)
     script_pos_[i] = tesseract::SP_NORMAL;

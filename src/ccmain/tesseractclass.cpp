@@ -271,9 +271,11 @@ Tesseract::Tesseract()
                   this->params()),
       double_MEMBER(quality_rowrej_pc, 1.1,
                     "good_quality_doc gte good char limit", this->params()),
-      BOOL_MEMBER(unlv_tilde_crunching, true,
+      BOOL_MEMBER(unlv_tilde_crunching, false,
                   "Mark v.bad words for tilde crunch", this->params()),
       BOOL_MEMBER(hocr_font_info, false, "Add font info to hocr output",
+                  this->params()),
+      BOOL_MEMBER(hocr_char_boxes, false, "Add coordinates for each character to hocr output",
                   this->params()),
       BOOL_MEMBER(crunch_early_merge_tess_fails, true, "Before word crunch?",
                   this->params()),
@@ -334,7 +336,7 @@ Tesseract::Tesseract()
       double_MEMBER(fixsp_small_outlines_size, 0.28, "Small if lt xht x this",
                     this->params()),
       BOOL_MEMBER(tessedit_prefer_joined_punct, false,
-                  "Reward punctation joins", this->params()),
+                  "Reward punctuation joins", this->params()),
       INT_MEMBER(fixsp_done_mode, 1, "What constitues done for spacing",
                  this->params()),
       INT_MEMBER(debug_fix_space_level, 0, "Contextual fixspace debug",
@@ -387,13 +389,25 @@ Tesseract::Tesseract()
                   this->params()),
       BOOL_MEMBER(tessedit_create_hocr, false, "Write .html hOCR output file",
                   this->params()),
+      BOOL_MEMBER(tessedit_create_alto, false, "Write .xml ALTO file",
+                  this->params()),
+      BOOL_MEMBER(tessedit_create_lstmbox, false, "Write .box file for LSTM training",
+                  this->params()),
       BOOL_MEMBER(tessedit_create_tsv, false, "Write .tsv output file",
+                  this->params()),
+      BOOL_MEMBER(tessedit_create_wordstrbox, false, "Write WordStr format .box output file",
                   this->params()),
       BOOL_MEMBER(tessedit_create_pdf, false, "Write .pdf output file",
                   this->params()),
       BOOL_MEMBER(textonly_pdf, false,
                   "Create PDF with only one invisible text layer",
                   this->params()),
+      INT_MEMBER(jpg_quality, 85, "Set JPEG quality level", this->params()),
+      INT_MEMBER(user_defined_dpi, 0, "Specify DPI for input image",
+                 this->params()),
+      INT_MEMBER(min_characters_to_try, 50,
+                 "Specify minimum characters to try during OSD",
+                 this->params()),
       STRING_MEMBER(unrecognised_char, "|",
                     "Output char for unidentified blobs", this->params()),
       INT_MEMBER(suspect_level, 99, "Suspect marker level", this->params()),
@@ -508,6 +522,12 @@ Tesseract::Tesseract()
       STRING_MEMBER(page_separator, "\f",
                     "Page separator (default is form feed control character)",
                     this->params()),
+      INT_MEMBER(lstm_choice_mode, 0,
+          "Allows to include alternative symbols choices in the hOCR output. "
+          "Valid input values are 0, 1 and 2. 0 is the default value. "
+          "With 1 the alternative symbol choices per timestep are included. "
+          "With 2 the alternative symbol choices are accumulated per character.",
+          this->params()),
 
       backup_config_file_(nullptr),
       pix_binary_(nullptr),
@@ -569,6 +589,8 @@ void Tesseract::Clear() {
     sub_langs_[i]->Clear();
 }
 
+#ifndef DISABLED_LEGACY_ENGINE
+
 void Tesseract::SetEquationDetect(EquationDetect* detector) {
   equ_detect_ = detector;
   equ_detect_->SetLangTesseract(this);
@@ -581,6 +603,8 @@ void Tesseract::ResetAdaptiveClassifier() {
     sub_langs_[i]->ResetAdaptiveClassifierInternal();
   }
 }
+
+#endif  //ndef DISABLED_LEGACY_ENGINE
 
 // Clear the document dictionary for this and all subclassifiers.
 void Tesseract::ResetDocumentDictionary() {
@@ -621,7 +645,7 @@ void Tesseract::PrepareForPageseg() {
     sub_langs_[i]->pix_binary_ = pixClone(pix_binary());
   }
   // Perform shiro-rekha (top-line) splitting and replace the current image by
-  // the newly splitted image.
+  // the newly split image.
   splitter_.set_orig_pix(pix_binary());
   splitter_.set_pageseg_split_strategy(max_pageseg_strategy);
   if (splitter_.Split(true, &pixa_debug_)) {

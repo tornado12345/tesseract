@@ -20,7 +20,7 @@
 #ifndef TESSERACT_CCUTIL_INDEXMAPBIDI_H_
 #define TESSERACT_CCUTIL_INDEXMAPBIDI_H_
 
-#include <stdio.h>
+#include <cstdio>
 #include "genericvector.h"
 
 namespace tesseract {
@@ -41,7 +41,7 @@ class IndexMapBiDi;
 // It must be initialized by copying from an IndexMapBiDi or by DeSerialize.
 class IndexMap {
  public:
-  virtual ~IndexMap() {}
+  virtual ~IndexMap();
 
   // SparseToCompact takes a sparse index to an index in the compact space.
   // Uses a binary search to find the result. For faster speed use
@@ -74,7 +74,7 @@ class IndexMap {
 
  protected:
   // The sparse space covers integers in the range [0, sparse_size_-1].
-  int sparse_size_;
+  int32_t sparse_size_;
   // The compact space covers integers in the range [0, compact_map_.size()-1].
   // Each element contains the corresponding sparse index.
   GenericVector<int32_t> compact_map_;
@@ -101,7 +101,7 @@ class IndexMap {
 //    Allows a many-to-one mapping by merging compact space indices.
 class IndexMapBiDi : public IndexMap {
  public:
-  virtual ~IndexMapBiDi() {}
+  virtual ~IndexMapBiDi();
 
   // Top-level init function in a single call to initialize a map to select
   // a single contiguous subrange [start, end) of the sparse space to be mapped

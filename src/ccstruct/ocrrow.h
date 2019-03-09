@@ -17,14 +17,18 @@
  *
  **********************************************************************/
 
-#ifndef           OCRROW_H
-#define           OCRROW_H
+#ifndef OCRROW_H
+#define OCRROW_H
 
-#include <stdio.h>
+#include <cstdint>      // for int16_t, int32_t
+#include <cstdio>       // for FILE
+#include "elst.h"       // for ELIST_ITERATOR, ELISTIZEH, ELIST_LINK
+#include "quspline.h"   // for QSPLINE
+#include "rect.h"       // for TBOX
+#include "scrollview.h" // for ScrollView, ScrollView::Color
+#include "werd.h"       // for WERD_LIST
 
-#include "quspline.h"
-#include "werd.h"
-
+class ICOORD;
 class TO_ROW;
 
 struct PARA;
@@ -33,8 +37,7 @@ class ROW:public ELIST_LINK
 {
   friend void tweak_row_baseline(ROW *, double, double);
   public:
-    ROW() {
-    }                            //empty constructor
+    ROW() = default;
     ROW(                    //constructor
         int32_t spline_size,  //no of segments
         int32_t *xstarts,     //segment boundaries
@@ -141,6 +144,9 @@ class ROW:public ELIST_LINK
     ROW& operator= (const ROW & source);
 
   private:
+    // Copy constructor (currently unused, therefore private).
+    ROW(const ROW& source);
+
     int32_t kerning;               //inter char gap
     int32_t spacing;               //inter word gap
     TBOX bound_box;              //bounding box

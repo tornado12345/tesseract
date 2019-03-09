@@ -19,8 +19,10 @@
 
 #include "detlinefit.h"
 #include "statistc.h"
-#include "ndminx.h"
 #include "tprintf.h"
+
+#include <algorithm>
+#include <cfloat>      // for FLT_MAX
 
 namespace tesseract {
 
@@ -37,9 +39,6 @@ const int kMinPointsForErrorCount = 16;
 const int kMaxRealDistance = 2.0;
 
 DetLineFit::DetLineFit() : square_length_(0.0) {
-}
-
-DetLineFit::~DetLineFit() {
 }
 
 // Delete all Added points.
@@ -77,14 +76,14 @@ double DetLineFit::Fit(int skip_first, int skip_last,
   ICOORD* starts[kNumEndPoints];
   if (skip_first >= pt_count) skip_first = pt_count - 1;
   int start_count = 0;
-  int end_i = MIN(skip_first + kNumEndPoints, pt_count);
+  int end_i = std::min(skip_first + kNumEndPoints, pt_count);
   for (int i = skip_first; i < end_i; ++i) {
     starts[start_count++] = &pts_[i].pt;
   }
   ICOORD* ends[kNumEndPoints];
   if (skip_last >= pt_count) skip_last = pt_count - 1;
   int end_count = 0;
-  end_i = MAX(0, pt_count - kNumEndPoints - skip_last);
+  end_i = std::max(0, pt_count - kNumEndPoints - skip_last);
   for (int i = pt_count - 1 - skip_last; i >= end_i; --i) {
     ends[end_count++] = &pts_[i].pt;
   }
@@ -192,8 +191,7 @@ double DetLineFit::ConstrainedFit(double m, float* c) {
   double cos = 1.0 / sqrt(1.0 + m * m);
   FCOORD direction(cos, m * cos);
   ICOORD line_pt;
-  double error = ConstrainedFit(direction, -MAX_FLOAT32, MAX_FLOAT32, false,
-                                &line_pt);
+  double error = ConstrainedFit(direction, -FLT_MAX, FLT_MAX, false, &line_pt);
   *c = line_pt.y() - line_pt.x() * m;
   return error;
 }

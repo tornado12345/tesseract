@@ -1,14 +1,8 @@
 /* -*-C-*-
- ********************************************************************************
+ ******************************************************************************
  *
  * File:        protos.cpp  (Formerly protos.c)
- * Description:
- * Author:       Mark Seaman, OCR Technology
- * Created:      Fri Oct 16 14:37:00 1987
- * Modified:     Mon Mar  4 14:51:24 1991 (Dan Johnson) danj@hpgrlj
- * Language:     C
- * Package:      N/A
- * Status:       Reusable Software Component
+ * Author:      Mark Seaman, OCR Technology
  *
  * (c) Copyright 1987, Hewlett-Packard Company.
  ** Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,32 +15,24 @@
  ** See the License for the specific language governing permissions and
  ** limitations under the License.
  *
- *********************************************************************************/
+ *****************************************************************************/
 /*----------------------------------------------------------------------
               I n c l u d e s
 ----------------------------------------------------------------------*/
 #include "protos.h"
-#include "const.h"
 #include "emalloc.h"
 #include "callcpp.h"
 #include "tprintf.h"
-#include "scanutils.h"
 #include "globals.h"
 #include "classify.h"
 #include "params.h"
+#include "intproto.h"
 
-#include <stdio.h>
-#include <math.h>
+#include <cstdio>
+#include <cmath>
 
 #define PROTO_INCREMENT   32
 #define CONFIG_INCREMENT  16
-
-/*----------------------------------------------------------------------
-              V a r i a b l e s
-----------------------------------------------------------------------*/
-CLASS_STRUCT TrainingData[NUMBER_OF_CLASSES];
-
-STRING_VAR(classify_training_file, "MicroFeatures", "Training file");
 
 /*----------------------------------------------------------------------
               F u n c t i o n s
@@ -56,7 +42,7 @@ STRING_VAR(classify_training_file, "MicroFeatures", "Training file");
  *
  * Add a new config to this class.  Malloc new space and copy the
  * old configs if necessary.  Return the config id for the new config.
- * 
+ *
  * @param Class The class to add to
  */
 int AddConfigToClass(CLASS_TYPE Class) {
@@ -92,7 +78,7 @@ int AddConfigToClass(CLASS_TYPE Class) {
  *
  * Add a new proto to this class.  Malloc new space and copy the
  * old protos if necessary.  Return the proto id for the new proto.
- * 
+ *
  * @param Class The class to add to
  */
 int AddProtoToClass(CLASS_TYPE Class) {
@@ -130,74 +116,15 @@ int AddProtoToClass(CLASS_TYPE Class) {
 }
 
 
-/**
- * @name ClassConfigLength
- *
- * Return the length of all the protos in this class.
- * 
- * @param Class The class to add to
- * @param Config FIXME
- */
-FLOAT32 ClassConfigLength(CLASS_TYPE Class, BIT_VECTOR Config) {
-  int16_t Pid;
-  FLOAT32 TotalLength = 0;
-
-  for (Pid = 0; Pid < Class->NumProtos; Pid++) {
-    if (test_bit (Config, Pid)) {
-
-      TotalLength += (ProtoIn (Class, Pid))->Length;
-    }
-  }
-  return (TotalLength);
-}
-
-
-/**
- * @name ClassProtoLength
- *
- * Return the length of all the protos in this class.
- * 
- * @param Class The class to use
- */
-FLOAT32 ClassProtoLength(CLASS_TYPE Class) {
-  int16_t Pid;
-  FLOAT32 TotalLength = 0;
-
-  for (Pid = 0; Pid < Class->NumProtos; Pid++) {
-    TotalLength += (ProtoIn (Class, Pid))->Length;
-  }
-  return (TotalLength);
-}
-
-
-/**
- * @name CopyProto
- *
- * Copy the first proto into the second.
- * 
- * @param Src Source
- * @param Dest Destination
- */
-void CopyProto(PROTO Src, PROTO Dest) {
-  Dest->X = Src->X;
-  Dest->Y = Src->Y;
-  Dest->Length = Src->Length;
-  Dest->Angle = Src->Angle;
-  Dest->A = Src->A;
-  Dest->B = Src->B;
-  Dest->C = Src->C;
-}
-
-
 /**********************************************************************
  * FillABC
  *
  * Fill in Protos A, B, C fields based on the X, Y, Angle fields.
  **********************************************************************/
 void FillABC(PROTO Proto) {
-  FLOAT32 Slope, Intercept, Normalizer;
+  float Slope, Intercept, Normalizer;
 
-  Slope = tan (Proto->Angle * 2.0 * PI);
+  Slope = tan(Proto->Angle * 2.0 * M_PI);
   Intercept = Proto->Y - Slope * Proto->X;
   Normalizer = 1.0 / sqrt (Slope * Slope + 1.0);
   Proto->A = Slope * Normalizer;
@@ -260,22 +187,4 @@ CLASS_TYPE NewClass(int NumProtos, int NumConfigs) {
   Class->NumConfigs = 0;
   return (Class);
 
-}
-
-
-/**********************************************************************
- * PrintProtos
- *
- * Print the list of prototypes in this class type.
- **********************************************************************/
-void PrintProtos(CLASS_TYPE Class) {
-  int16_t Pid;
-
-  for (Pid = 0; Pid < Class->NumProtos; Pid++) {
-    cprintf ("Proto %d:\t", Pid);
-    PrintProto (ProtoIn (Class, Pid));
-    cprintf ("\t");
-    PrintProtoLine (ProtoIn (Class, Pid));
-    new_line();
-  }
 }

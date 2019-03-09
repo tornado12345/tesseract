@@ -17,14 +17,20 @@
 //
 ///////////////////////////////////////////////////////////////////////
 
-#include "wordrec.h"
-
-#include "associate.h"
-#include "language_model.h"
-#include "matrix.h"
-#include "params.h"
-#include "lm_pain_points.h"
-#include "ratngs.h"
+#include <cstdint>           // for INT32_MAX
+#include "blamer.h"          // for BlamerBundle
+#include "errcode.h"         // for ASSERT_HOST
+#include "genericvector.h"   // for GenericVector
+#include "lm_pain_points.h"  // for LMPainPoints, LM_PPTYPE_SHAPE, LMPainPoi...
+#include "lm_state.h"        // for BestChoiceBundle, ViterbiStateEntry
+#include "matrix.h"          // for MATRIX_COORD, MATRIX
+#include "pageres.h"         // for WERD_RES
+#include "params.h"          // for BoolParam, IntParam, DoubleParam
+#include "ratngs.h"          // for BLOB_CHOICE_LIST, BLOB_CHOICE_IT
+#include "strngs.h"          // for STRING
+#include "tesscallback.h"    // for TessResultCallback2
+#include "tprintf.h"         // for tprintf
+#include "wordrec.h"         // for Wordrec, SegSearchPending (ptr only)
 
 namespace tesseract {
 
@@ -186,7 +192,7 @@ void Wordrec::UpdateSegSearchNodes(
   for (int col = starting_col; col < ratings->dimension(); ++col) {
     if (!(*pending)[col].WorkToDo()) continue;
     int first_row = col;
-    int last_row = MIN(ratings->dimension() - 1,
+    int last_row = std::min(ratings->dimension() - 1,
                        col + ratings->bandwidth() - 1);
     if ((*pending)[col].SingleRow() >= 0) {
       first_row = last_row = (*pending)[col].SingleRow();

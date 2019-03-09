@@ -1,10 +1,10 @@
 /******************************************************************************
- **	Filename:    featdefs.h
- **	Purpose:     Definitions of currently defined feature types.
- **	Author:      Dan Johnson
- **	History:     Mon May 21 08:28:01 1990, DSJ, Created.
+ ** Filename:    featdefs.h
+ ** Purpose:     Definitions of currently defined feature types.
+ ** Author:      Dan Johnson
+ ** History:     Mon May 21 08:28:01 1990, DSJ, Created.
  **
- **	(c) Copyright Hewlett-Packard Company, 1988.
+ ** (c) Copyright Hewlett-Packard Company, 1988.
  ** Licensed under the Apache License, Version 2.0 (the "License");
  ** you may not use this file except in compliance with the License.
  ** You may obtain a copy of the License at
@@ -15,8 +15,9 @@
  ** See the License for the specific language governing permissions and
  ** limitations under the License.
  ******************************************************************************/
-#ifndef   FEATDEFS_H
-#define   FEATDEFS_H
+
+#ifndef FEATDEFS_H
+#define FEATDEFS_H
 
 /**----------------------------------------------------------------------------
           Include Files and Type Defines
@@ -30,9 +31,6 @@ extern const char* kCNFeatureType;
 extern const char* kIntFeatureType;
 extern const char* kGeoFeatureType;
 
-/* define error traps which can be triggered by this module.*/
-#define ILLEGAL_SHORT_NAME  2000
-
 /* A character is described by multiple sets of extracted features.  Each
   set contains a number of features of a particular type, for example, a
   set of bays, or a set of closures, or a set of microfeatures.  Each
@@ -43,14 +41,14 @@ struct CHAR_DESC_STRUCT {
   uint32_t NumFeatureSets;
   FEATURE_SET FeatureSets[NUM_FEATURE_TYPES];
 };
-typedef CHAR_DESC_STRUCT *CHAR_DESC;
+using CHAR_DESC = CHAR_DESC_STRUCT *;
 
 struct FEATURE_DEFS_STRUCT {
   int32_t NumFeatureTypes;
   const FEATURE_DESC_STRUCT* FeatureDesc[NUM_FEATURE_TYPES];
   int FeatureEnabled[NUM_FEATURE_TYPES];
 };
-typedef FEATURE_DEFS_STRUCT *FEATURE_DEFS;
+using FEATURE_DEFS = FEATURE_DEFS_STRUCT *;
 
 /*----------------------------------------------------------------------
     Generic functions for manipulating character descriptions

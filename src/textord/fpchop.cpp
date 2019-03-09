@@ -1,8 +1,8 @@
 /**********************************************************************
  * File:        fpchop.cpp  (Formerly fp_chop.c)
  * Description: Code to chop fixed pitch text into character cells.
- * Author:    Ray Smith
- * Created:   Thu Sep 16 11:14:15 BST 1993
+ * Author:      Ray Smith
+ * Created:     Thu Sep 16 11:14:15 BST 1993
  *
  * (C) Copyright 1993, Hewlett-Packard Ltd.
  ** Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,16 +17,12 @@
  *
  **********************************************************************/
 
-#ifdef __UNIX__
-#include          <assert.h>
-#endif
-#include          "stderr.h"
-#include          "blobbox.h"
-#include          "statistc.h"
-#include          "drawtord.h"
-#include          "tovars.h"
-#include          "topitch.h"
-#include          "fpchop.h"
+#include "blobbox.h"
+#include "statistc.h"
+#include "drawtord.h"
+#include "tovars.h"
+#include "topitch.h"
+#include "fpchop.h"
 
 // Include automatically generated configuration file if running autoconf.
 #ifdef HAVE_CONFIG_H
@@ -52,7 +48,7 @@ ROW *fixed_pitch_words(                 //find lines
                        TO_ROW *row,     //row to do
                        FCOORD rotation  //for drawing
                       ) {
-  BOOL8 bol;                     //start of line
+  bool bol;                     //start of line
   uint8_t blanks;                  //in front of word
   uint8_t new_blanks;              //blanks in empty cell
   int16_t chop_coord;              //chop boundary
@@ -82,7 +78,7 @@ ROW *fixed_pitch_words(                 //find lines
 #endif
 
   prev_x = -INT16_MAX;
-  bol = TRUE;
+  bol = true;
   blanks = 0;
   if (rep_it.empty ())
     rep_left = INT16_MAX;
@@ -158,7 +154,7 @@ ROW *fixed_pitch_words(                 //find lines
         word_it.add_after_then_move (word);
         if (bol) {
           word->set_flag (W_BOL, TRUE);
-          bol = FALSE;
+          bol = false;
         }
         blanks = new_blanks;
       }
@@ -279,7 +275,7 @@ void fixed_chop_cblob(                                //split the blob
                      ) {
   C_OUTLINE *old_right;          //already there
   C_OUTLINE_LIST new_outlines;   //new right ones
-                                 //ouput iterator
+                                 //output iterator
   C_OUTLINE_IT left_it = left_outlines;
                                  //in/out iterator
   C_OUTLINE_IT right_it = right_outlines;
@@ -398,14 +394,14 @@ void fixed_split_coutline(                        //chop the outline
  * If the coutline lies too heavily to one side to chop, FALSE is returned.
  **********************************************************************/
 
-BOOL8 fixed_chop_coutline(                                  //chop the outline
-                          C_OUTLINE *srcline,               //source outline
-                          int16_t chop_coord,                 //place to chop
-                          float pitch_error,                //allowed deviation
-                          C_OUTLINE_FRAG_LIST *left_frags,  //left half of chop
-                          C_OUTLINE_FRAG_LIST *right_frags  //right half of chop
-                         ) {
-  BOOL8 first_frag;              //fragment
+bool fixed_chop_coutline(                                  //chop the outline
+        C_OUTLINE* srcline,               //source outline
+        int16_t chop_coord,                 //place to chop
+        float pitch_error,                //allowed deviation
+        C_OUTLINE_FRAG_LIST* left_frags,  //left half of chop
+        C_OUTLINE_FRAG_LIST* right_frags  //right half of chop
+) {
+  bool first_frag;              //fragment
   int16_t left_edge;               //of outline
   int16_t startindex;              //in first fragment
   int32_t length;                  //of outline
@@ -432,10 +428,10 @@ BOOL8 fixed_chop_coutline(                                  //chop the outline
     pos += srcline->step (stepindex);
   }
   if (left_edge >= chop_coord - pitch_error)
-    return FALSE;                //not worth it
+    return false;                //not worth it
 
   startindex = tail_index;
-  first_frag = TRUE;
+  first_frag = true;
   head_index = tail_index;
   head_pos = tail_pos;
   do {
@@ -448,13 +444,11 @@ BOOL8 fixed_chop_coutline(                                  //chop the outline
     while (tail_pos.x () != chop_coord && tail_index != startindex);
     if (tail_index == startindex) {
       if (first_frag)
-        return FALSE;            //doesn't cross line
+        return false;            //doesn't cross line
       else
         break;
     }
-    //#ifdef __UNIX__
     ASSERT_HOST (head_index != tail_index);
-    //#endif
     if (!first_frag) {
       save_chop_cfragment(head_index,
                           head_pos,
@@ -466,7 +460,7 @@ BOOL8 fixed_chop_coutline(                                  //chop the outline
     else {
       first_index = tail_index;
       first_pos = tail_pos;
-      first_frag = FALSE;
+      first_frag = false;
     }
     while (srcline->step (tail_index).x () == 0) {
       tail_pos += srcline->step (tail_index);
@@ -484,9 +478,7 @@ BOOL8 fixed_chop_coutline(                                  //chop the outline
           tail_index = 0;
       }
       while (tail_pos.x () != chop_coord);
-      //#ifdef __UNIX__
       ASSERT_HOST (head_index != tail_index);
-      //#endif
       save_chop_cfragment(head_index,
                           head_pos,
                           tail_index,
@@ -510,7 +502,7 @@ BOOL8 fixed_chop_coutline(                                  //chop the outline
                       first_pos,
                       srcline,
                       left_frags);
-  return TRUE;                   //did some chopping
+  return true;                   //did some chopping
 }
 
 /**********************************************************************
@@ -660,8 +652,8 @@ void close_chopped_cfragments(                             //chop the outline
     bottom_frag = frag_it.extract();
     frag_it.forward();
     top_frag = frag_it.data();  // look at next
-    if ((bottom_frag->steps == 0 && top_frag->steps == 0)
-    || (bottom_frag->steps != 0 && top_frag->steps != 0)) {
+    if ((bottom_frag->steps == nullptr && top_frag->steps == nullptr)
+    || (bottom_frag->steps != nullptr && top_frag->steps != nullptr)) {
       if (frag_it.data_relative(1)->ycoord == top_frag->ycoord)
         frag_it.forward();
     }
@@ -707,7 +699,7 @@ C_OUTLINE *join_chopped_fragments(                         //join pieces
   C_OUTLINE *outline;            //closed loop
 
   if (bottom->other_end == top) {
-    if (bottom->steps == 0)
+    if (bottom->steps == nullptr)
       outline = top->close ();   //turn to outline
     else
       outline = bottom->close ();
@@ -715,12 +707,12 @@ C_OUTLINE *join_chopped_fragments(                         //join pieces
     delete bottom;
     return outline;
   }
-  if (bottom->steps == 0) {
-    ASSERT_HOST (top->steps != 0);
+  if (bottom->steps == nullptr) {
+    ASSERT_HOST (top->steps != nullptr);
     join_segments (bottom->other_end, top);
   }
   else {
-    ASSERT_HOST (top->steps == 0);
+    ASSERT_HOST (top->steps == nullptr);
     join_segments (top->other_end, bottom);
   }
   top->other_end->other_end = bottom->other_end;

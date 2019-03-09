@@ -23,9 +23,9 @@
 #include <memory>  // std::unique_ptr
 #include "allheaders.h"
 #include "baseapi.h"
-#include "math.h"
+#include <cmath>
 #include "renderer.h"
-#include "strngs.h"
+#include <cstring>
 #include "tprintf.h"
 
 /*
@@ -179,12 +179,11 @@ static const int kMaxBytesPerCodepoint = 20;
 /**********************************************************************
  * PDF Renderer interface implementation
  **********************************************************************/
-
 TessPDFRenderer::TessPDFRenderer(const char *outputbase, const char *datadir,
                                  bool textonly)
-    : TessResultRenderer(outputbase, "pdf") {
+    : TessResultRenderer(outputbase, "pdf"),
+      datadir_(datadir) {
   obj_  = 0;
-  datadir_ = datadir;
   textonly_ = textonly;
   offsets_.push_back(0);
 }
@@ -196,13 +195,13 @@ void TessPDFRenderer::AppendPDFObjectDIY(size_t objectsize) {
 
 void TessPDFRenderer::AppendPDFObject(const char *data) {
   AppendPDFObjectDIY(strlen(data));
-  AppendString((const char *)data);
+  AppendString(data);
 }
 
 // Helper function to prevent us from accidentally writing
 // scientific notation to an HOCR or PDF file. Besides, three
 // decimal points are all you really need.
-double prec(double x) {
+static double prec(double x) {
   double kPrecision = 1000.0;
   double a = round(x * kPrecision) / kPrecision;
   if (a == -0)
@@ -210,7 +209,7 @@ double prec(double x) {
   return a;
 }
 
-long dist2(int x1, int y1, int x2, int y2) {
+static long dist2(int x1, int y1, int x2, int y2) {
   return (x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1);
 }
 
@@ -222,10 +221,10 @@ long dist2(int x1, int y1, int x2, int y2) {
 // left-to-right no matter what the reading order is. We need the
 // word baseline in reading order, so we do that conversion here. Returns
 // the word's baseline origin and length.
-void GetWordBaseline(int writing_direction, int ppi, int height,
-                     int word_x1, int word_y1, int word_x2, int word_y2,
-                     int line_x1, int line_y1, int line_x2, int line_y2,
-                     double *x0, double *y0, double *length) {
+static void GetWordBaseline(int writing_direction, int ppi, int height,
+                            int word_x1, int word_y1, int word_x2, int word_y2,
+                            int line_x1, int line_y1, int line_x2, int line_y2,
+                            double *x0, double *y0, double *length) {
   if (writing_direction == WRITING_DIRECTION_RIGHT_TO_LEFT) {
     Swap(&word_x1, &word_x2);
     Swap(&word_y1, &word_y2);
@@ -264,9 +263,9 @@ void GetWordBaseline(int writing_direction, int ppi, int height,
 //                           RTL
 // [ x' ] = [ a b ][ x ] = [-1 0 ] [ cos sin ][ x ]
 // [ y' ]   [ c d ][ y ]   [ 0 1 ] [-sin cos ][ y ]
-void AffineMatrix(int writing_direction,
-                  int line_x1, int line_y1, int line_x2, int line_y2,
-                  double *a, double *b, double *c, double *d) {
+static void AffineMatrix(int writing_direction,
+                         int line_x1, int line_y1, int line_x2, int line_y2,
+                         double *a, double *b, double *c, double *d) {
   double theta = atan2(static_cast<double>(line_y1 - line_y2),
                        static_cast<double>(line_x2 - line_x1));
   *a = cos(theta);
@@ -293,20 +292,20 @@ void AffineMatrix(int writing_direction,
 // these viewers. I chose this threshold large enough to absorb noise,
 // but small enough that lines probably won't cross each other if the
 // whole page is tilted at almost exactly the clipping threshold.
-void ClipBaseline(int ppi, int x1, int y1, int x2, int y2,
-                  int *line_x1, int *line_y1,
-                  int *line_x2, int *line_y2) {
+static void ClipBaseline(int ppi, int x1, int y1, int x2, int y2,
+                         int *line_x1, int *line_y1,
+                         int *line_x2, int *line_y2) {
   *line_x1 = x1;
   *line_y1 = y1;
   *line_x2 = x2;
   *line_y2 = y2;
-  double rise = abs(y2 - y1) * 72 / ppi;
-  double run = abs(x2 - x1) * 72 / ppi;
-  if (rise < 2.0 && 2.0 < run)
+  int rise = abs(y2 - y1) * 72;
+  int run = abs(x2 - x1) * 72;
+  if (rise < 2 * ppi && 2 * ppi < run)
     *line_y1 = *line_y2 = (y1 + y2) / 2;
 }
 
-bool CodepointToUtf16be(int code, char utf16[kMaxBytesPerCodepoint]) {
+static bool CodepointToUtf16be(int code, char utf16[kMaxBytesPerCodepoint]) {
   if ((code > 0xD7FF && code < 0xE000) || code > 0x10FFFF) {
     tprintf("Dropping invalid codepoint %d\n", code);
     return false;
@@ -471,7 +470,7 @@ char* TessPDFRenderer::GetPDFTextObjects(TessBaseAPI* api,
       }
       res_it->Next(RIL_SYMBOL);
     } while (!res_it->Empty(RIL_BLOCK) && !res_it->IsAtBeginningOf(RIL_WORD));
-    if (word_length > 0 && pdf_word_len > 0 && fontsize > 0) {
+    if (word_length > 0 && pdf_word_len > 0) {
       double h_stretch =
           kCharWidth * prec(100.0 * word_length / (fontsize * pdf_word_len));
       pdf_str.add_str_double("", h_stretch);
@@ -654,7 +653,7 @@ bool TessPDFRenderer::BeginDocumentHandler() {
   if (n >= sizeof(buf)) return false;
   AppendPDFObject(buf);
 
-  n = snprintf(buf, sizeof(buf), "%s/pdf.ttf", datadir_);
+  n = snprintf(buf, sizeof(buf), "%s/pdf.ttf", datadir_.c_str());
   if (n >= sizeof(buf)) return false;
   FILE *fp = fopen(buf, "rb");
   if (!fp) {
@@ -669,7 +668,7 @@ bool TessPDFRenderer::BeginDocumentHandler() {
   }
   fseek(fp, 0, SEEK_SET);
   const std::unique_ptr<char[]> buffer(new char[size]);
-  if (fread(buffer.get(), 1, size, fp) != static_cast<size_t>(size)) {
+  if (!tesseract::DeSerialize(fp, buffer.get(), size)) {
     fclose(fp);
     return false;
   }
@@ -696,10 +695,11 @@ bool TessPDFRenderer::BeginDocumentHandler() {
 }
 
 bool TessPDFRenderer::imageToPDFObj(Pix *pix,
-                                    char *filename,
+                                    const char* filename,
                                     long int objnum,
                                     char **pdf_object,
-                                    long int *pdf_object_size) {
+                                    long int* pdf_object_size,
+                                    const int jpg_quality) {
   size_t n;
   char b0[kBasicBufSize];
   char b1[kBasicBufSize];
@@ -708,20 +708,16 @@ bool TessPDFRenderer::imageToPDFObj(Pix *pix,
     return false;
   *pdf_object = nullptr;
   *pdf_object_size = 0;
-  if (!filename)
+  if (!filename && !pix)
     return false;
 
   L_Compressed_Data *cid = nullptr;
-  const int kJpegQuality = 85;
 
-  int format, sad;
-  findFileFormat(filename, &format);
-  if (pixGetSpp(pix) == 4 && format == IFF_PNG) {
-    Pix *p1 = pixAlphaBlendUniform(pix, 0xffffff00);
-    sad = pixGenerateCIData(p1, L_FLATE_ENCODE, 0, 0, &cid);
-    pixDestroy(&p1);
-  } else {
-    sad = l_generateCIDataForPdf(filename, pix, kJpegQuality, &cid);
+  int sad = 0;
+  if (pixGetInputFormat(pix) == IFF_PNG)
+    sad = pixGenerateCIData(pix, L_FLATE_ENCODE, 0, 0, &cid);
+  if (!cid) {
+    sad = l_generateCIDataForPdf(filename, pix, jpg_quality, &cid);
   }
 
   if (sad || !cid) {
@@ -845,7 +841,7 @@ bool TessPDFRenderer::AddImageHandler(TessBaseAPI* api) {
   char buf[kBasicBufSize];
   char buf2[kBasicBufSize];
   Pix *pix = api->GetInputImage();
-  char *filename = (char *)api->GetInputName();
+  const char* filename = api->GetInputName();
   int ppi = api->GetSourceYResolution();
   if (!pix || ppi <= 0)
     return false;
@@ -912,7 +908,10 @@ bool TessPDFRenderer::AddImageHandler(TessBaseAPI* api) {
 
   if (!textonly_) {
     char *pdf_object = nullptr;
-    if (!imageToPDFObj(pix, filename, obj_, &pdf_object, &objsize)) {
+    int jpg_quality;
+    api->GetIntVariable("jpg_quality", &jpg_quality);
+    if (!imageToPDFObj(pix, filename, obj_, &pdf_object, &objsize,
+                       jpg_quality)) {
       return false;
     }
     AppendData(pdf_object, objsize);

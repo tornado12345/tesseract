@@ -20,13 +20,11 @@
 ----------------------------------------------------------------------------*/
 #include "cutoffs.h"
 
-#include <stdio.h>
+#include <cstdio>
 
 #include "classify.h"
-#include "efio.h"
 #include "globals.h"
 #include "helpers.h"
-#include "scanutils.h"
 #include "serialis.h"
 #include "unichar.h"
 
@@ -44,21 +42,18 @@ namespace tesseract {
  * @param Cutoffs array to put cutoffs into
  * @return none
  * @note Globals: none
- * @note Exceptions: none
- * @note History: Wed Feb 20 09:38:26 1991, DSJ, Created.
  */
 void Classify::ReadNewCutoffs(TFile* fp, CLASS_CUTOFF_ARRAY Cutoffs) {
   char Class[UNICHAR_LEN + 1];
   CLASS_ID ClassId;
   int Cutoff;
-  int i;
 
   if (shape_table_ != nullptr) {
     if (!shapetable_cutoffs_.DeSerialize(fp)) {
       tprintf("Error during read of shapetable pffmtable!\n");
     }
   }
-  for (i = 0; i < MAX_NUM_CLASSES; i++)
+  for (int i = 0; i < MAX_NUM_CLASSES; i++)
     Cutoffs[i] = MAX_CUTOFF;
 
   const int kMaxLineSize = 100;

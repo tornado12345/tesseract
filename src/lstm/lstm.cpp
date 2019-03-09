@@ -21,8 +21,8 @@
 #ifdef _OPENMP
 #include <omp.h>
 #endif
-#include <stdio.h>
-#include <stdlib.h>
+#include <cstdio>
+#include <cstdlib>
 
 #if !defined(__GNUC__) && defined(_MSC_VER)
 #include <intrin.h>     // _BitScanReverse
@@ -206,7 +206,7 @@ void LSTM::DebugWeights() {
 // Writes to the given file. Returns false in case of error.
 bool LSTM::Serialize(TFile* fp) const {
   if (!Network::Serialize(fp)) return false;
-  if (fp->FWrite(&na_, sizeof(na_), 1) != 1) return false;
+  if (!fp->Serialize(&na_)) return false;
   for (int w = 0; w < WT_COUNT; ++w) {
     if (w == GFS && !Is2D()) continue;
     if (!gate_weights_[w].Serialize(IsTraining(), fp)) return false;
@@ -218,7 +218,7 @@ bool LSTM::Serialize(TFile* fp) const {
 // Reads from the given file. Returns false in case of error.
 
 bool LSTM::DeSerialize(TFile* fp) {
-  if (fp->FReadEndian(&na_, sizeof(na_), 1) != 1) return false;
+  if (!fp->DeSerialize(&na_)) return false;
   if (type_ == NT_LSTM_SOFTMAX) {
     nf_ = no_;
   } else if (type_ == NT_LSTM_SOFTMAX_ENCODED) {

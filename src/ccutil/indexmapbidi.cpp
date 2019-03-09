@@ -21,6 +21,11 @@
 
 namespace tesseract {
 
+// Destructor.
+// It is defined here, so the compiler can create a single vtable
+// instead of weak vtables in every compilation unit.
+IndexMap::~IndexMap() = default;
+
 // SparseToCompact takes a sparse index to an index in the compact space.
 // Uses a binary search to find the result. For faster speed use
 // IndexMapBiDi, but that takes more memory.
@@ -41,24 +46,26 @@ void IndexMap::CopyFrom(const IndexMapBiDi& src) {
 
 // Writes to the given file. Returns false in case of error.
 bool IndexMap::Serialize(FILE* fp) const {
-  int32_t sparse_size = sparse_size_;
-  if (fwrite(&sparse_size, sizeof(sparse_size), 1, fp) != 1) return false;
-  if (!compact_map_.Serialize(fp)) return false;
-  return true;
+  return tesseract::Serialize(fp, &sparse_size_) && compact_map_.Serialize(fp);
 }
 
 // Reads from the given file. Returns false in case of error.
 // If swap is true, assumes a big/little-endian swap is needed.
 bool IndexMap::DeSerialize(bool swap, FILE* fp) {
-  int32_t sparse_size;
-  if (fread(&sparse_size, sizeof(sparse_size), 1, fp) != 1) return false;
+  uint32_t sparse_size;
+  if (!tesseract::DeSerialize(fp, &sparse_size)) return false;
   if (swap)
     ReverseN(&sparse_size, sizeof(sparse_size));
+  // Arbitrarily limit the number of elements to protect against bad data.
+  if (sparse_size > UINT16_MAX) return false;
   sparse_size_ = sparse_size;
-  if (!compact_map_.DeSerialize(swap, fp)) return false;
-  return true;
+  return compact_map_.DeSerialize(swap, fp);
 }
 
+// Destructor.
+// It is defined here, so the compiler can create a single vtable
+// instead of weak vtables in every compilation unit.
+IndexMapBiDi::~IndexMapBiDi() = default;
 
 // Top-level init function in a single call to initialize a map to select
 // a single contiguous subrange [start, end) of the sparse space to be mapped

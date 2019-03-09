@@ -35,7 +35,7 @@
 DECLARE_STRING_PARAM_FLAG(fonts_dir);
 DECLARE_STRING_PARAM_FLAG(fontconfig_tmpdir);
 
-typedef signed int char32;
+using char32 = signed int;
 
 namespace tesseract {
 
@@ -207,6 +207,7 @@ class FontUtils {
 
   // PangoFontInfo is reinitialized, so clear the static list of fonts.
   static void ReInit();
+  static void PangoFontTypeInfo();
 
  private:
   static std::vector<std::string> available_fonts_;  // cache list

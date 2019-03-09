@@ -20,7 +20,7 @@
 #ifndef ELST_H
 #define ELST_H
 
-#include <stdio.h>
+#include <cstdio>
 #include "host.h"
 #include "serialis.h"
 #include "lsterr.h"
@@ -67,7 +67,7 @@ The implementation of lists is very careful about space and speed overheads.
 This is why many embedded lists are provided. The same concerns mean that
 in-line type coercion is done, rather than use virtual functions.  This is
 cumbersome in that each data type to be listed requires its own iterator and
-list class - though macros can gererate these.  It also prevents heterogeneous
+list class - though macros can generate these.  It also prevents heterogeneous
 lists.
 **********************************************************************/
 
@@ -826,10 +826,10 @@ inline void ELIST_ITERATOR::add_to_end(  // element to add
 Replace <parm> with "<parm>".  <parm> may be an arbitrary number of tokens
 ***********************************************************************/
 
-#define QUOTE_IT( parm ) #parm
+#define QUOTE_IT(parm) #parm
 
 /***********************************************************************
-  ELISTIZE( CLASSNAME ) MACRO
+  ELISTIZE(CLASSNAME) MACRO
   ============================
 
 CLASSNAME is assumed to be the name of a class which has a baseclass of
@@ -852,7 +852,7 @@ The ...IZE macros define the code use in .c files
 ***********************************************************************/
 
 /***********************************************************************
-  ELISTIZEH( CLASSNAME )  MACRO
+  ELISTIZEH(CLASSNAME)  MACRO
 
 ELISTIZEH is a concatenation of 3 fragments ELISTIZEH_A, ELISTIZEH_B and
 ELISTIZEH_C.
@@ -893,10 +893,10 @@ private:                                                                      \
    DONT_CONSTRUCT_LIST_BY_COPY.error(QUOTE_IT(CLASSNAME##_LIST), ABORT, nullptr);\
  }                                                                            \
  void operator=(const CLASSNAME##_LIST&) {                                    \
-   DONT_ASSIGN_LISTS.error(QUOTE_IT(CLASSNAME##_LIST), ABORT, nullptr );         \
+   DONT_ASSIGN_LISTS.error(QUOTE_IT(CLASSNAME##_LIST), ABORT, nullptr);       \
  }                                                                            \
 
-#define ELISTIZEH_C( CLASSNAME )                                              \
+#define ELISTIZEH_C(CLASSNAME)                                                \
 };                                                                            \
                                                                               \
                                                                               \
@@ -945,17 +945,17 @@ class DLLSYM CLASSNAME##_IT : public ELIST_ITERATOR {                         \
   }                                                                           \
 };
 
-#define ELISTIZEH( CLASSNAME )                                                \
+#define ELISTIZEH(CLASSNAME)                                                  \
                                                                               \
-ELISTIZEH_A( CLASSNAME )                                                      \
+ELISTIZEH_A(CLASSNAME)                                                        \
                                                                               \
-ELISTIZEH_B( CLASSNAME )                                                      \
+ELISTIZEH_B(CLASSNAME)                                                        \
                                                                               \
-ELISTIZEH_C( CLASSNAME )
+ELISTIZEH_C(CLASSNAME)
 
 
 /***********************************************************************
-  ELISTIZE( CLASSNAME ) MACRO
+  ELISTIZE(CLASSNAME) MACRO
 ***********************************************************************/
 
 #define ELISTIZE(CLASSNAME)                                                   \

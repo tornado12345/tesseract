@@ -27,9 +27,13 @@
 #include "tabvector.h"
 #include "blobbox.h"
 #include "edgblob.h"
-#include "openclwrapper.h"
+#if defined(USE_OPENCL)
+#include "openclwrapper.h" // for OpenclDevice
+#endif
 
 #include "allheaders.h"
+
+#include <algorithm>
 
 namespace tesseract {
 
@@ -152,13 +156,13 @@ static int CountPixelsAdjacentToLine(int line_width, Box* line_box,
   boxGetGeometry(line_box, &x, &y, &box_width, &box_height);
   if (box_width > box_height) {
     // horizontal line.
-    int bottom = MIN(pixGetHeight(nonline_pix), y + box_height + line_width);
-    y = MAX(0, y - line_width);
+    int bottom = std::min(pixGetHeight(nonline_pix), y + box_height + line_width);
+    y = std::max(0, y - line_width);
     box_height = bottom - y;
   } else {
     // Vertical line.
-    int right = MIN(pixGetWidth(nonline_pix), x + box_width + line_width);
-    x = MAX(0, x - line_width);
+    int right = std::min(pixGetWidth(nonline_pix), x + box_width + line_width);
+    x = std::max(0, x - line_width);
     box_width = right - x;
   }
   Box* box = boxCreate(x, y, box_width, box_height);
@@ -241,7 +245,6 @@ void LineFinder::FindAndRemoveLines(int resolution, bool debug, Pix* pix,
                                     Pix** pix_music_mask,
                                     TabVector_LIST* v_lines,
                                     TabVector_LIST* h_lines) {
-  PERF_COUNT_START("FindAndRemoveLines")
   if (pix == nullptr || vertical_x == nullptr || vertical_y == nullptr) {
     tprintf("Error in parameters for LineFinder::FindAndRemoveLines\n");
     return;
@@ -306,7 +309,6 @@ void LineFinder::FindAndRemoveLines(int resolution, bool debug, Pix* pix,
                      "vhlinefinding.pdf");
     pixaDestroy(&pixa_display);
   }
-  PERF_COUNT_END
 }
 
 // Converts the Boxa array to a list of C_BLOB, getting rid of severely
@@ -581,7 +583,6 @@ void LineFinder::GetLineMasks(int resolution, Pix* src_pix,
   }
   int closing_brick = max_line_width / 3;
 
-  PERF_COUNT_START("GetLineMasksMorph")
 // only use opencl if compiled w/ OpenCL and selected device is opencl
 #ifdef USE_OPENCL
   if (OpenclDevice::selectedDeviceIsOpenCL()) {
@@ -589,7 +590,7 @@ void LineFinder::GetLineMasks(int resolution, Pix* src_pix,
     int clStatus = OpenclDevice::initMorphCLAllocations(pixGetWpl(src_pix),
                                                         pixGetHeight(src_pix),
                                                         src_pix);
-    bool getpixclosed = pix_music_mask != nullptr ? true : false;
+    bool getpixclosed = pix_music_mask != nullptr;
     OpenclDevice::pixGetLinesCL(nullptr, src_pix, pix_vline, pix_hline,
                                 &pix_closed, getpixclosed, closing_brick,
                                 closing_brick, max_line_width, max_line_width,
@@ -623,7 +624,6 @@ void LineFinder::GetLineMasks(int resolution, Pix* src_pix,
 #ifdef USE_OPENCL
   }
 #endif
-  PERF_COUNT_END
 
   // Lines are sufficiently rare, that it is worth checking for a zero image.
   l_int32 v_empty = 0;
@@ -706,7 +706,7 @@ void LineFinder::GetLineMasks(int resolution, Pix* src_pix,
 }
 
 // Returns a list of boxes corresponding to the candidate line segments. Sets
-// the line_crossings member of the boxes so we can later determin the number
+// the line_crossings member of the boxes so we can later determine the number
 // of intersections touched by a full line.
 void LineFinder::GetLineBoxes(bool horizontal_lines,
                               Pix* pix_lines, Pix* pix_intersections,

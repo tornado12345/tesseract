@@ -17,14 +17,13 @@
  *
  **********************************************************************/
 
-#include          <stdio.h>
-#include          <string.h>
-#include          <stdlib.h>
+#include <cstdio>
+#include <cstring>
+#include <cstdlib>
 
-#include          "genericvector.h"
-#include          "scanutils.h"
-#include          "tprintf.h"
-#include          "params.h"
+#include "genericvector.h"
+#include "tprintf.h"
+#include "params.h"
 
 #define PLUS          '+'        //flag states
 #define MINUS         '-'
@@ -80,8 +79,7 @@ bool ParamUtils::ReadParamsFromFp(SetParamConstraint constraint, TFile *fp,
 
       if (!foundit) {
         anyerr = true;         // had an error
-        tprintf("read_params_file: parameter not found: %s\n", line);
-        exit(1);
+        tprintf("Warning: Parameter not found: %s\n", line);
       }
     }
   }

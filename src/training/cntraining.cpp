@@ -24,16 +24,14 @@
           Include Files and Type Defines
 ----------------------------------------------------------------------------*/
 #include "oldlist.h"
-#include "efio.h"
-#include "emalloc.h"
 #include "featdefs.h"
 #include "tessopt.h"
 #include "ocrfeatures.h"
 #include "clusttool.h"
 #include "cluster.h"
-#include <string.h>
-#include <stdio.h>
-#include <math.h>
+#include <cstring>
+#include <cstdio>
+#include <cmath>
 #include "unichar.h"
 #include "commontraining.h"
 
@@ -45,21 +43,11 @@ DECLARE_STRING_PARAM_FLAG(D);
           Private Function Prototypes
 ----------------------------------------------------------------------------*/
 
-void WriteNormProtos(const char *Directory, LIST LabeledProtoList,
-                     const FEATURE_DESC_STRUCT *feature_desc);
+static void WriteNormProtos(const char *Directory, LIST LabeledProtoList,
+                            const FEATURE_DESC_STRUCT *feature_desc);
 
-/*
-PARAMDESC *ConvertToPARAMDESC(
-  PARAM_DESC* Param_Desc,
-  int N);
-*/
-
-void WriteProtos(
-     FILE  *File,
-     uint16_t  N,
-     LIST  ProtoList,
-     BOOL8  WriteSigProtos,
-     BOOL8  WriteInsigProtos);
+static void WriteProtos(FILE* File, uint16_t N, LIST ProtoList,
+                        bool WriteSigProtos, bool WriteInsigProtos);
 
 /*----------------------------------------------------------------------------
           Global Data Definitions and Declarations
@@ -120,8 +108,6 @@ CLUSTERCONFIG  CNConfig =
 * @param argv  array of command line arguments
 * @return none
 * @note Globals: none
-* @note Exceptions: none
-* @note History: Fri Aug 18 08:56:17 1989, DSJ, Created.
 */
 int main(int argc, char *argv[]) {
   tesseract::CheckSharedLibraryVersion();
@@ -130,7 +116,6 @@ int main(int argc, char *argv[]) {
   Config = CNConfig;
 
   const char  *PageName;
-  FILE  *TrainingPage;
   LIST  CharList = NIL_LIST;
   CLUSTERER *Clusterer = nullptr;
   LIST    ProtoList = NIL_LIST;
@@ -144,11 +129,14 @@ int main(int argc, char *argv[]) {
   int num_fonts = 0;
   while ((PageName = GetNextFilename(argc, argv)) != nullptr) {
     printf("Reading %s ...\n", PageName);
-    TrainingPage = Efopen(PageName, "rb");
-    ReadTrainingSamples(FeatureDefs, PROGRAM_FEATURE_TYPE, 100, nullptr,
-                        TrainingPage, &CharList);
-    fclose(TrainingPage);
-    ++num_fonts;
+    FILE *TrainingPage = fopen(PageName, "rb");
+    ASSERT_HOST(TrainingPage);
+    if (TrainingPage) {
+      ReadTrainingSamples(FeatureDefs, PROGRAM_FEATURE_TYPE, 100, nullptr,
+                          TrainingPage, &CharList);
+      fclose(TrainingPage);
+      ++num_fonts;
+    }
   }
   printf("Clustering ...\n");
   // To allow an individual font to form a separate cluster,
@@ -174,7 +162,7 @@ int main(int argc, char *argv[]) {
     Config.MagicSamples = CharSample->SampleCount;
     while (Config.MinSamples > 0.001) {
       ProtoList = ClusterSamples(Clusterer, &Config);
-      if (NumberOfProtos(ProtoList, 1, 0) > 0) {
+      if (NumberOfProtos(ProtoList, true, false) > 0) {
         break;
       } else {
         Config.MinSamples *= 0.95;
@@ -213,11 +201,9 @@ int main(int argc, char *argv[]) {
 * @param LabeledProtoList List of labeled protos
 * @param feature_desc Description of the features
 * @return none
-* @note Exceptions: none
-* @note History: Fri Aug 18 16:17:06 1989, DSJ, Created.
 */
-void WriteNormProtos(const char *Directory, LIST LabeledProtoList,
-                     const FEATURE_DESC_STRUCT *feature_desc) {
+static void WriteNormProtos(const char *Directory, LIST LabeledProtoList,
+                            const FEATURE_DESC_STRUCT *feature_desc) {
   FILE    *File;
   STRING Filename;
   LABELEDLIST LabeledProto;
@@ -230,7 +216,8 @@ void WriteNormProtos(const char *Directory, LIST LabeledProtoList,
   }
   Filename += "normproto";
   printf ("\nWriting %s ...", Filename.string());
-  File = Efopen (Filename.string(), "wb");
+  File = fopen(Filename.string(), "wb");
+  ASSERT_HOST(File);
   fprintf(File, "%0d\n", feature_desc->NumParams);
   WriteParamDesc(File, feature_desc->NumParams, feature_desc->ParamDesc);
   iterate(LabeledProtoList)
@@ -242,8 +229,8 @@ void WriteNormProtos(const char *Directory, LIST LabeledProtoList,
               " (%d significant protos"
               ", %d insignificant protos)\n",
               LabeledProto->Label, N,
-              NumberOfProtos(LabeledProto->List, 1, 0),
-              NumberOfProtos(LabeledProto->List, 0, 1));
+              NumberOfProtos(LabeledProto->List, true, false),
+              NumberOfProtos(LabeledProto->List, false, true));
       exit(1);
     }
     fprintf(File, "\n%s %d\n", LabeledProto->Label, N);
@@ -254,21 +241,18 @@ void WriteNormProtos(const char *Directory, LIST LabeledProtoList,
 }  // WriteNormProtos
 
 /*-------------------------------------------------------------------------*/
-void WriteProtos(
-     FILE  *File,
-     uint16_t  N,
-     LIST  ProtoList,
-     BOOL8  WriteSigProtos,
-     BOOL8  WriteInsigProtos)
+
+static void WriteProtos(FILE* File, uint16_t N, LIST ProtoList,
+                        bool WriteSigProtos, bool WriteInsigProtos)
 {
   PROTOTYPE  *Proto;
 
   // write prototypes
   iterate(ProtoList)
   {
-    Proto = (PROTOTYPE *) first_node ( ProtoList );
-    if (( Proto->Significant && WriteSigProtos )  ||
-      ( ! Proto->Significant && WriteInsigProtos ) )
-      WritePrototype( File, N, Proto );
+    Proto = (PROTOTYPE*)first_node(ProtoList);
+    if ((Proto->Significant && WriteSigProtos)  ||
+      (! Proto->Significant && WriteInsigProtos))
+      WritePrototype(File, N, Proto);
   }
 }  // WriteProtos

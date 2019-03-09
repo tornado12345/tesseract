@@ -46,7 +46,7 @@ CLISTIZEH(ColSegment)
 class ColSegment : public ELIST_LINK {
  public:
   ColSegment();
-  ~ColSegment();
+  ~ColSegment() = default;
 
   // Simple accessors and mutators
   const TBOX& bounding_box() const {
@@ -113,12 +113,12 @@ class ColSegment : public ELIST_LINK {
 };
 
 // Typedef BBGrid of ColSegments
-typedef BBGrid<ColSegment,
+using ColSegmentGrid = BBGrid<ColSegment,
                ColSegment_CLIST,
-               ColSegment_C_IT> ColSegmentGrid;
-typedef GridSearch<ColSegment,
+               ColSegment_C_IT>;
+using ColSegmentGridSearch = GridSearch<ColSegment,
                    ColSegment_CLIST,
-                   ColSegment_C_IT> ColSegmentGridSearch;
+                   ColSegment_C_IT>;
 
 // TableFinder is a utility class to find a set of tables given a set of
 // ColPartitions and Columns. The TableFinder will mark candidate ColPartitions

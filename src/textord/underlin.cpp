@@ -1,8 +1,7 @@
 /**********************************************************************
  * File:        underlin.cpp  (Formerly undrline.c)
  * Description: Code to chop blobs apart from underlines.
- * Author:		Ray Smith
- * Created:		Mon Aug  8 11:14:00 BST 1994
+ * Author:      Ray Smith
  *
  * (C) Copyright 1994, Hewlett-Packard Ltd.
  ** Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,10 +16,7 @@
  *
  **********************************************************************/
 
-#ifdef __UNIX__
-#include          <assert.h>
-#endif
-#include          "underlin.h"
+#include "underlin.h"
 
 #define PROJECTION_MARGIN 10     //arbitrary
 #define EXTERN

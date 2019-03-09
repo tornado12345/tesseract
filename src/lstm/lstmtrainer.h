@@ -147,7 +147,7 @@ class LSTMTrainer : public LSTMRecognizer {
     return best_iteration_;
   }
   int learning_iteration() const { return learning_iteration_; }
-  int improvement_steps() const { return improvement_steps_; }
+  int32_t improvement_steps() const { return improvement_steps_; }
   void set_perfect_delay(int delay) { perfect_delay_ = delay; }
   const GenericVector<char>& best_trainer() const { return best_trainer_; }
   // Returns the error that was just calculated by PrepareForBackward.
@@ -211,10 +211,10 @@ class LSTMTrainer : public LSTMRecognizer {
   int CurrentTrainingStage() const { return training_stage_; }
 
   // Writes to the given file. Returns false in case of error.
-  virtual bool Serialize(SerializeAmount serialize_amount,
-                         const TessdataManager* mgr, TFile* fp) const;
+  bool Serialize(SerializeAmount serialize_amount,
+                 const TessdataManager* mgr, TFile* fp) const;
   // Reads from the given file. Returns false in case of error.
-  virtual bool DeSerialize(const TessdataManager* mgr, TFile* fp);
+  bool DeSerialize(const TessdataManager* mgr, TFile* fp);
 
   // De-serializes the saved best_trainer_ into sub_trainer_, and adjusts the
   // learning rates (by scaling reduction, or layer specific, according to
@@ -457,7 +457,7 @@ class LSTMTrainer : public LSTMRecognizer {
   GenericVector<double> best_error_history_;
   GenericVector<int> best_error_iterations_;
   // Number of iterations since the best_error_rate_ was 2% more than it is now.
-  int improvement_steps_;
+  int32_t improvement_steps_;
   // Number of iterations that yielded a non-zero delta error and thus provided
   // significant learning. learning_iteration_ <= training_iteration_.
   // learning_iteration_ is used to measure rate of learning progress.

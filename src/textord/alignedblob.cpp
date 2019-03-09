@@ -22,7 +22,8 @@
 #endif
 
 #include "alignedblob.h"
-#include "ndminx.h"
+
+#include <algorithm>
 
 INT_VAR(textord_debug_tabfind, 0, "Debug tab finding");
 INT_VAR(textord_debug_bugs, 0, "Turn on output related to bugs in tab finding");
@@ -123,8 +124,8 @@ AlignedBlobParams::AlignedBlobParams(int vertical_x, int vertical_y,
     min_points(1),
     min_length(kVLineMinLength) {
   // Compute threshold for left and right alignment.
-  l_align_tolerance = MAX(kVLineAlignment, width);
-  r_align_tolerance = MAX(kVLineAlignment, width);
+  l_align_tolerance = std::max(kVLineAlignment, width);
+  r_align_tolerance = std::max(kVLineAlignment, width);
 
   // Fit the vertical vector into an ICOORD, which is 16 bit.
   set_vertical(vertical_x, vertical_y);
@@ -143,9 +144,6 @@ void AlignedBlobParams::set_vertical(int vertical_x, int vertical_y) {
 AlignedBlob::AlignedBlob(int gridsize,
                          const ICOORD& bleft, const ICOORD& tright)
   : BlobGrid(gridsize, bleft, tright) {
-}
-
-AlignedBlob::~AlignedBlob() {
 }
 
 // Return true if the given coordinates are within the test rectangle
@@ -214,6 +212,11 @@ static bool AtLeast2LineCrossings(BLOBNBOX_CLIST* blobs) {
   return total_crossings >= 2;
 }
 
+// Destructor.
+// It is defined here, so the compiler can create a single vtable
+// instead of weak vtables in every compilation unit.
+AlignedBlob::~AlignedBlob() = default;
+
 // Finds a vector corresponding to a set of vertically aligned blob edges
 // running through the given box. The type of vector returned and the
 // search parameters are determined by the AlignedBlobParams.
@@ -240,7 +243,7 @@ TabVector* AlignedBlob::FindVerticalAlignment(AlignedBlobParams align_params,
   box = it.data()->bounding_box();
   int start_x = align_params.right_tab ? box.right() : box.left();
   int start_y = box.bottom();
-  // Acceptable tab vectors must have a mininum number of points,
+  // Acceptable tab vectors must have a minimum number of points,
   // have a minimum acceptable length, and have a minimum gradient.
   // The gradient corresponds to the skew angle.
   // Ragged tabs don't need to satisfy the gradient condition, as they
@@ -394,8 +397,8 @@ BLOBNBOX* AlignedBlob::FindAlignedBlob(const AlignedBlobParams& p,
     *end_y = start_y + p.max_v_gap;
   }
   // Expand the box by an additional skew tolerance
-  int xmin = MIN(x_start, x2) - skew_tolerance;
-  int xmax = MAX(x_start, x2) + skew_tolerance;
+  int xmin = std::min(x_start, x2) - skew_tolerance;
+  int xmax = std::max(x_start, x2) + skew_tolerance;
   // Now add direction-specific tolerances.
   if (p.right_tab) {
     xmax += p.min_gutter;

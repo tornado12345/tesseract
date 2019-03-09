@@ -14,8 +14,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 ///////////////////////////////////////////////////////////////////////
+#ifndef TESSERACT_ARCH_SIMDDETECT_H_
+#define TESSERACT_ARCH_SIMDDETECT_H_
 
 #include "platform.h"
+
+namespace tesseract {
+
+// Function pointer for best calculation of dot product.
+typedef double (*DotProductFunction)(const double* u, const double* v, int n);
+extern DotProductFunction DotProduct;
 
 // Architecture detector. Add code here to detect any other architectures for
 // SIMD-based faster dot product functions. Intended to be a single static
@@ -37,6 +45,9 @@ class SIMDDetect {
   // Returns true if SSE4.1 is available on this system.
   static inline bool IsSSEAvailable() { return detector.sse_available_; }
 
+  // Update settings after config variable was set.
+  static void Update();
+
  private:
   // Constructor, must set all static member variables.
   SIMDDetect();
@@ -52,3 +63,7 @@ class SIMDDetect {
   // If true, then SSe4.1 has been detected.
   static TESS_API bool sse_available_;
 };
+
+}  // namespace tesseract
+
+#endif  // TESSERACT_ARCH_SIMDDETECT_H_

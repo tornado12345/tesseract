@@ -2,7 +2,6 @@
  **      Filename:       mfx.c
  **      Purpose:        Micro feature extraction routines
  **      Author:         Dan Johnson
- **      History:        7/21/89, DSJ, Created.
  **
  **      (c) Copyright Hewlett-Packard Company, 1988.
  ** Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,19 +13,19 @@
  ** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  ** See the License for the specific language governing permissions and
  ** limitations under the License.
- ******************************************************************************/
+ *****************************************************************************/
 /*----------------------------------------------------------------------------
           Include Files and Type Defines
 ----------------------------------------------------------------------------*/
+#include "mfx.h"
 #include "mfdefs.h"
 #include "mfoutline.h"
 #include "clusttool.h"           //NEEDED
-#include "const.h"
 #include "intfx.h"
 #include "normalis.h"
 #include "params.h"
 
-#include <math.h>
+#include <cmath>
 
 /*----------------------------------------------------------------------------
           Variables
@@ -42,12 +41,11 @@ double_VAR(classify_max_slope, 2.414213562,
           Macros
 ----------------------------------------------------------------------------*/
 /* miscellaneous macros */
-#define NormalizeAngle(A)       ( (((A)<0)?((A)+2*PI):(A)) / (2*PI) )
+#define NormalizeAngle(A) ((((A) < 0) ? ((A) + 2 * M_PI) : (A)) / (2 * M_PI))
 
 /*----------------------------------------------------------------------------
           Private Function Prototypes
 -----------------------------------------------------------------------------*/
-FLOAT32 ComputeOrientation(MFEDGEPT *Start, MFEDGEPT *End);
 
 MICROFEATURES ConvertToMicroFeatures(MFOUTLINE Outline,
                                      MICROFEATURES MicroFeatures);
@@ -66,8 +64,6 @@ MICROFEATURE ExtractMicroFeature(MFOUTLINE Start, MFOUTLINE End);
  * @param Blob blob to extract micro-features from
  * @param cn_denorm control parameter to feature extractor
  * @return List of micro-features extracted from the blob.
- * @note Exceptions: none
- * @note History: 7/21/89, DSJ, Created.
  */
 MICROFEATURES BlobMicroFeatures(TBLOB* Blob, const DENORM& cn_denorm) {
   MICROFEATURES MicroFeatures = NIL_LIST;
@@ -96,37 +92,9 @@ MICROFEATURES BlobMicroFeatures(TBLOB* Blob, const DENORM& cn_denorm) {
   return MicroFeatures;
 }                                /* BlobMicroFeatures */
 
-
 /*---------------------------------------------------------------------------
             Private Code
 ---------------------------------------------------------------------------*/
-
-/**
- * This routine computes the orientation parameter of the
- * specified micro-feature.  The orientation is the angle of
- * the vector from Start to End.  It is normalized to a number
- * between 0 and 1 where 0 corresponds to 0 degrees and 1
- * corresponds to 360 degrees.  The actual range is [0,1), i.e.
- * 1 is excluded from the range (since it is actual the
- * same orientation as 0).  This routine assumes that Start
- * and End are not the same point.
- * @param Start           starting edge point of micro-feature
- * @param End             ending edge point of micro-feature
- * @note Globals: none
- * @return Orientation parameter for the specified micro-feature.
- * @note Exceptions: none
- * @note History: 7/27/89, DSJ, Created.
- */
-FLOAT32 ComputeOrientation(MFEDGEPT *Start, MFEDGEPT *End) {
-  FLOAT32 Orientation;
-
-  Orientation = NormalizeAngle (AngleFrom (Start->Point, End->Point));
-
-  /* ensure that round-off errors do not put circular param out of range */
-  if ((Orientation < 0) || (Orientation >= 1))
-    Orientation = 0;
-  return (Orientation);
-}                                /* ComputeOrientation */
 
 /**
  * Convert Outline to MicroFeatures
@@ -134,8 +102,6 @@ FLOAT32 ComputeOrientation(MFEDGEPT *Start, MFEDGEPT *End) {
  * @param MicroFeatures   list of micro-features to add to
  * @return List of micro-features with new features added to front.
  * @note Globals: none
- * @note Exceptions: none
- * @note History: 7/26/89, DSJ, Created.
  */
 MICROFEATURES ConvertToMicroFeatures(MFOUTLINE Outline,
                                      MICROFEATURES MicroFeatures) {
@@ -175,10 +141,6 @@ MICROFEATURES ConvertToMicroFeatures(MFOUTLINE Outline,
  * @param End ending point of micro-feature
  * @return New micro-feature or nullptr if the feature was rejected.
  * @note Globals: none
- * @note Exceptions: none
- * @note History:
- * - 7/26/89, DSJ, Created.
- * - 11/17/89, DSJ, Added handling for Start and End same point.
  */
 MICROFEATURE ExtractMicroFeature(MFOUTLINE Start, MFOUTLINE End) {
   MICROFEATURE NewFeature;

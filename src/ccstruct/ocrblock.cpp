@@ -1,8 +1,8 @@
 /**********************************************************************
  * File:        ocrblock.cpp  (Formerly block.c)
  * Description: BLOCK member functions and iterator functions.
- * Author:		Ray Smith
- * Created:		Fri Mar 15 09:41:28 GMT 1991
+ * Author:      Ray Smith
+ * Created:     Fri Mar 15 09:41:28 GMT 1991
  *
  * (C) Copyright 1991, Hewlett-Packard Ltd.
  ** Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,9 +18,8 @@
  **********************************************************************/
 
 #include "ocrblock.h"
-#include <stdlib.h>
+#include <cstdlib>
 #include <memory>  // std::unique_ptr
-#include "blckerr.h"
 #include "stepblob.h"
 #include "tprintf.h"
 
@@ -32,15 +31,15 @@ ELISTIZE (BLOCK)
  *
  * Constructor for a simple rectangular block.
  */
-BLOCK::BLOCK(const char *name,                //< filename
-             BOOL8 prop,                      //< proportional
-             int16_t kern,                      //< kerning
-             int16_t space,                     //< spacing
-             int16_t xmin,                      //< bottom left
-             int16_t ymin, int16_t xmax,          //< top right
+BLOCK::BLOCK(const char *name,                ///< filename
+             BOOL8 prop,                      ///< proportional
+             int16_t kern,                    ///< kerning
+             int16_t space,                   ///< spacing
+             int16_t xmin,                    ///< bottom left
+             int16_t ymin, int16_t xmax,      ///< top right
              int16_t ymax)
-  : filename(name),
-    pdblk(xmin, ymin, xmax, ymax),
+  : pdblk(xmin, ymin, xmax, ymax),
+    filename(name),
     re_rotation_(1.0f, 0.0f),
     classify_rotation_(1.0f, 0.0f),
     skew_(1.0f, 0.0f) {
@@ -69,11 +68,9 @@ BLOCK::BLOCK(const char *name,                //< filename
  * Sort Comparator: Return <0 if row1 top < row2 top
  */
 
-int decreasing_top_order(  //
-                         const void *row1,
-                         const void *row2) {
-  return (*(ROW **) row2)->bounding_box ().top () -
-    (*(ROW **) row1)->bounding_box ().top ();
+static int decreasing_top_order(const void *row1, const void *row2) {
+  return (*reinterpret_cast<ROW* const*>(row2))->bounding_box().top() -
+    (*reinterpret_cast<ROW* const*>(row1))->bounding_box().top();
 }
 
 
@@ -195,9 +192,9 @@ void BLOCK::compress(                  // squash it up
  */
 
 void BLOCK::print(            //print list of sides
-                  FILE *,     //< file to print on
-                  BOOL8 dump  //< print full detail
-                 ) {
+        FILE*,     ///< file to print on
+        bool dump  ///< print full detail
+) {
   ICOORDELT_IT it = &pdblk.leftside;   //iterator
 
   pdblk.box.print ();
@@ -253,7 +250,7 @@ const BLOCK & source             //from this
 //   margin - return value, the distance from x,y to the left margin of the
 //       block containing it.
 // If all segments were to the right of x, we return false and 0.
-bool LeftMargin(ICOORDELT_LIST *segments, int x, int *margin) {
+static bool LeftMargin(ICOORDELT_LIST *segments, int x, int *margin) {
   bool found = false;
   *margin = 0;
   if (segments->empty())
@@ -283,7 +280,7 @@ bool LeftMargin(ICOORDELT_LIST *segments, int x, int *margin) {
 //   margin - return value, the distance from x,y to the right margin of the
 //       block containing it.
 // If all segments were to the left of x, we return false and 0.
-bool RightMargin(ICOORDELT_LIST *segments, int x, int *margin) {
+static bool RightMargin(ICOORDELT_LIST *segments, int x, int *margin) {
   bool found = false;
   *margin = 0;
   if (segments->empty())

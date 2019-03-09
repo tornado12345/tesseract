@@ -31,7 +31,7 @@
 
 namespace tesseract {
 
-typedef GenericVector<UNICHAR_ID> UnicharIdVector;
+using UnicharIdVector = GenericVector<UNICHAR_ID>;
 
 static const int kUnigramAmbigsBufferSize = 1000;
 static const char kAmbigNgramSeparator[] = { ' ', '\0' };
@@ -114,7 +114,7 @@ class UnicharIdArrayUtils {
 class AmbigSpec : public ELIST_LINK {
  public:
   AmbigSpec();
-  ~AmbigSpec() {}
+  ~AmbigSpec() = default;
 
   // Comparator function for sorting AmbigSpec_LISTs. The lists will
   // be sorted by their wrong_ngram arrays. Example of wrong_ngram vectors
@@ -138,11 +138,11 @@ ELISTIZEH(AmbigSpec)
 
 // AMBIG_TABLE[i] stores a set of ambiguities whose
 // wrong ngram starts with unichar id i.
-typedef GenericVector<AmbigSpec_LIST *> UnicharAmbigsVector;
+using UnicharAmbigsVector = GenericVector<AmbigSpec_LIST *>;
 
 class UnicharAmbigs {
  public:
-  UnicharAmbigs() {}
+  UnicharAmbigs() = default;
   ~UnicharAmbigs() {
     replace_ambigs_.delete_data_pointers();
     dang_ambigs_.delete_data_pointers();

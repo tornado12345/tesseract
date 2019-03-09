@@ -33,7 +33,7 @@ struct Pix;
 
 namespace tesseract {
 
-typedef TessResultCallback1<bool, int> WidthCallback;
+using WidthCallback = TessResultCallback1<bool, int>;
 
 struct AlignedBlobParams;
 class ColPartitionGrid;
@@ -287,7 +287,7 @@ class TabFind : public AlignedBlob {
 
   // Set the vertical_skew_ member from the given vector and refit
   // all vectors parallel to the skew vector.
-  void SetVerticalSkewAndParellelize(int vertical_x, int vertical_y);
+  void SetVerticalSkewAndParallelize(int vertical_x, int vertical_y);
 
   // Sort all the current vectors using the vertical_skew_ vector.
   void SortVectors();
@@ -364,15 +364,15 @@ class TabFind : public AlignedBlob {
   void ApplyTabConstraints();
 
  protected:
-  ICOORD vertical_skew_;          //< Estimate of true vertical in this image.
-  int resolution_;                //< Of source image in pixels per inch.
+  ICOORD vertical_skew_;          ///< Estimate of true vertical in this image.
+  int resolution_;                ///< Of source image in pixels per inch.
  private:
-  ICOORD image_origin_;           //< Top-left of image in deskewed coords
-  TabVector_LIST vectors_;        //< List of rule line and tabstops.
-  TabVector_IT v_it_;             //< Iterator for searching vectors_.
-  TabVector_LIST dead_vectors_;   //< Separators and unpartnered tab vectors.
+  ICOORD image_origin_;           ///< Top-left of image in deskewed coords
+  TabVector_LIST vectors_;        ///< List of rule line and tabstops.
+  TabVector_IT v_it_;             ///< Iterator for searching vectors_.
+  TabVector_LIST dead_vectors_;   ///< Separators and unpartnered tab vectors.
   // List of commonly occurring width ranges with x=min and y=max.
-  ICOORDELT_LIST column_widths_;  //< List of commonly occurring width ranges.
+  ICOORDELT_LIST column_widths_;  ///< List of commonly occurring width ranges.
   /** Callback to test an int for being a common width. */
   WidthCallback* width_cb_;
   // Sets of bounding boxes that are candidate tab stops.

@@ -1,8 +1,8 @@
 /**********************************************************************
  * File:        points.cpp  (Formerly coords.c)
  * Description: Member functions for coordinate classes.
- * Author:					Ray Smith
- * Created:					Fri Mar 15 08:58:17 GMT 1991
+ * Author:      Ray Smith
+ * Created:     Fri Mar 15 08:58:17 GMT 1991
  *
  * (C) Copyright 1991, Hewlett-Packard Ltd.
  ** Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,11 +21,11 @@
 #define _USE_MATH_DEFINES
 #endif  // _MSC_VER
 
-#include          <stdlib.h>
-#include          "helpers.h"
-#include          "ndminx.h"
-#include          "serialis.h"
-#include          "points.h"
+#include <algorithm>
+#include <cstdlib>
+#include "helpers.h"
+#include "serialis.h"
+#include "points.h"
 
 ELISTIZE (ICOORDELT)           //turn to list
 bool FCOORD::normalise() {  //Convert to unit vec
@@ -43,7 +43,7 @@ bool FCOORD::normalise() {  //Convert to unit vec
 void ICOORD::set_with_shrink(int x, int y) {
   // Fit the vector into an ICOORD, which is 16 bit.
   int factor = 1;
-  int max_extent = MAX(abs(x), abs(y));
+  int max_extent = std::max(abs(x), abs(y));
   if (max_extent > INT16_MAX)
     factor = max_extent / INT16_MAX + 1;
   xcoord = x / factor;
@@ -61,15 +61,14 @@ static int sign(int x) {
 
 // Writes to the given file. Returns false in case of error.
 bool ICOORD::Serialize(FILE* fp) const {
-  if (fwrite(&xcoord, sizeof(xcoord), 1, fp) != 1) return false;
-  if (fwrite(&ycoord, sizeof(ycoord), 1, fp) != 1) return false;
-  return true;
+  return tesseract::Serialize(fp, &xcoord) &&
+         tesseract::Serialize(fp, &ycoord);
 }
 // Reads from the given file. Returns false in case of error.
 // If swap is true, assumes a big/little-endian swap is needed.
 bool ICOORD::DeSerialize(bool swap, FILE* fp) {
-  if (fread(&xcoord, sizeof(xcoord), 1, fp) != 1) return false;
-  if (fread(&ycoord, sizeof(ycoord), 1, fp) != 1) return false;
+  if (!tesseract::DeSerialize(fp, &xcoord)) return false;
+  if (!tesseract::DeSerialize(fp, &ycoord)) return false;
   if (swap) {
     ReverseN(&xcoord, sizeof(xcoord));
     ReverseN(&ycoord, sizeof(ycoord));

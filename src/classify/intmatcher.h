@@ -45,7 +45,7 @@ struct UnicharRating;
 struct CP_RESULT_STRUCT {
   CP_RESULT_STRUCT() : Rating(0.0f), Class(0) {}
 
-  FLOAT32 Rating;
+  float Rating;
   CLASS_ID Class;
 };
 
@@ -93,9 +93,7 @@ class IntegerMatcher {
   // Center of Similarity Curve.
   static const float kSimilarityCenter;
 
-  IntegerMatcher() : classify_debug_level_(0) {}
-
-  void Init(tesseract::IntParam *classify_debug_level);
+  IntegerMatcher(tesseract::IntParam *classify_debug_level);
 
   void Match(INT_CLASS ClassTemplate,
              BIT_VECTOR ProtoMask,
@@ -173,13 +171,12 @@ class IntegerMatcher {
       bool SeparateDebugWindows);
 #endif
 
-
  private:
+  tesseract::IntParam *classify_debug_level_;
   uint8_t similarity_evidence_table_[SE_TABLE_SIZE];
   uint32_t evidence_table_mask_;
   uint32_t mult_trunc_shift_bits_;
   uint32_t table_trunc_shift_bits_;
-  tesseract::IntParam *classify_debug_level_;
   uint32_t evidence_mult_mask_;
 };
 
@@ -196,7 +193,7 @@ void IMDebugConfigurationSum(INT_FEATURE FeatureNum,
                              uint8_t *FeatureEvidence,
                              int32_t ConfigCount);
 
-void HeapSort (int n, register int ra[], register int rb[]);
+void HeapSort (int n, int ra[], int rb[]);
 
 /**----------------------------------------------------------------------------
         Global Data Definitions and Declarations

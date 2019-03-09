@@ -1,5 +1,3 @@
-// Copyright 2010 Google Inc. All Rights Reserved.
-// Author: rays@google.com (Ray Smith)
 ///////////////////////////////////////////////////////////////////////
 // File:        mastertrainer.cpp
 // Description: Trainer to build the MasterClassifier.
@@ -25,12 +23,11 @@
 #endif
 
 #include "mastertrainer.h"
-#include <math.h>
-#include <time.h>
+#include <cmath>
+#include <ctime>
 #include "allheaders.h"
 #include "boxread.h"
 #include "classify.h"
-#include "efio.h"
 #include "errorcounter.h"
 #include "featdefs.h"
 #include "sampleiterator.h"
@@ -58,7 +55,7 @@ MasterTrainer::MasterTrainer(NormalizationMode norm_mode,
   : norm_mode_(norm_mode), samples_(fontinfo_table_),
     junk_samples_(fontinfo_table_), verify_samples_(fontinfo_table_),
     charsetsize_(0),
-    enable_shape_anaylsis_(shape_analysis),
+    enable_shape_analysis_(shape_analysis),
     enable_replication_(replicate_samples),
     fragments_(nullptr), prev_unichar_id_(-1), debug_level_(debug_level) {
 }
@@ -73,7 +70,8 @@ MasterTrainer::~MasterTrainer() {
 // enough data to get the samples back and display them.
 // Writes to the given file. Returns false in case of error.
 bool MasterTrainer::Serialize(FILE* fp) const {
-  if (fwrite(&norm_mode_, sizeof(norm_mode_), 1, fp) != 1) return false;
+  uint32_t value = norm_mode_;
+  if (!tesseract::Serialize(fp, &value)) return false;
   if (!unicharset_.save_to_file(fp)) return false;
   if (!feature_space_.Serialize(fp)) return false;
   if (!samples_.Serialize(fp)) return false;
@@ -115,13 +113,13 @@ void MasterTrainer::ReadTrainingSamples(const char* page_name,
                                         const FEATURE_DEFS_STRUCT& feature_defs,
                                         bool verification) {
   char buffer[2048];
-  int int_feature_type = ShortNameToFeatureType(feature_defs, kIntFeatureType);
-  int micro_feature_type = ShortNameToFeatureType(feature_defs,
+  const int int_feature_type = ShortNameToFeatureType(feature_defs, kIntFeatureType);
+  const int micro_feature_type = ShortNameToFeatureType(feature_defs,
                                                   kMicroFeatureType);
-  int cn_feature_type = ShortNameToFeatureType(feature_defs, kCNFeatureType);
-  int geo_feature_type = ShortNameToFeatureType(feature_defs, kGeoFeatureType);
+  const int cn_feature_type = ShortNameToFeatureType(feature_defs, kCNFeatureType);
+  const int geo_feature_type = ShortNameToFeatureType(feature_defs, kGeoFeatureType);
 
-  FILE* fp = Efopen(page_name, "rb");
+  FILE* fp = fopen(page_name, "rb");
   if (fp == nullptr) {
     tprintf("Failed to open tr file: %s\n", page_name);
     return;
@@ -174,7 +172,7 @@ void MasterTrainer::AddSample(bool verification, const char* unichar,
     if (flat_shapes_.FindShape(prev_unichar_id_, sample->font_id()) < 0)
       flat_shapes_.AddShape(prev_unichar_id_, sample->font_id());
   } else {
-    int junk_id = junk_samples_.AddSample(unichar, sample);
+    const int junk_id = junk_samples_.AddSample(unichar, sample);
     if (prev_unichar_id_ >= 0) {
       CHAR_FRAGMENT* frag = CHAR_FRAGMENT::parse_from_string(unichar);
       if (frag != nullptr && frag->is_natural()) {
@@ -207,13 +205,13 @@ void MasterTrainer::LoadPageImages(const char* filename) {
 
 // Cleans up the samples after initial load from the tr files, and prior to
 // saving the MasterTrainer:
-// Remaps fragmented chars if running shape anaylsis.
+// Remaps fragmented chars if running shape analysis.
 // Sets up the samples appropriately for class/fontwise access.
 // Deletes outlier samples.
 void MasterTrainer::PostLoadCleanup() {
   if (debug_level_ > 0)
     tprintf("PostLoadCleanup...\n");
-  if (enable_shape_anaylsis_)
+  if (enable_shape_analysis_)
     ReplaceFragmentedSamples();
   SampleIterator sample_it;
   sample_it.Init(nullptr, nullptr, true, &verify_samples_);
@@ -247,7 +245,7 @@ void MasterTrainer::PreTrainingSetup() {
 // together until they get to a leaf node classifier.
 void MasterTrainer::SetupMasterShapes() {
   tprintf("Building master shape table\n");
-  int num_fonts = samples_.NumFonts();
+  const int num_fonts = samples_.NumFonts();
 
   ShapeTable char_shapes_begin_fragment(samples_.unicharset());
   ShapeTable char_shapes_end_fragment(samples_.unicharset());
@@ -553,8 +551,8 @@ CLUSTERER* MasterTrainer::SetupForClustering(
   int sample_id = 0;
   for (int i = sample_ptrs.size() - 1; i >= 0; --i) {
     const TrainingSample* sample = sample_ptrs[i];
-    int num_features = sample->num_micro_features();
-    for (int f = 0; f < num_features; ++f)
+    uint32_t num_features = sample->num_micro_features();
+    for (uint32_t f = 0; f < num_features; ++f)
       MakeSample(clusterer, sample->micro_features()[f], sample_id);
     ++sample_id;
   }
@@ -578,8 +576,12 @@ void MasterTrainer::WriteInttempAndPFFMTable(const UNICHARSET& unicharset,
   INT_TEMPLATES int_templates = classify->CreateIntTemplates(float_classes,
                                                              shape_set);
   FILE* fp = fopen(inttemp_file, "wb");
-  classify->WriteIntTemplates(fp, int_templates, shape_set);
-  fclose(fp);
+  if (fp == nullptr) {
+    tprintf("Error, failed to open file \"%s\"\n", inttemp_file);
+  } else {
+    classify->WriteIntTemplates(fp, int_templates, shape_set);
+    fclose(fp);
+  }
   // Now write pffmtable. This is complicated by the fact that the adaptive
   // classifier still wants one indexed by unichar-id, but the static
   // classifier needs one indexed by its shape class id.
@@ -612,15 +614,19 @@ void MasterTrainer::WriteInttempAndPFFMTable(const UNICHARSET& unicharset,
     shapetable_cutoffs.push_back(max_length);
   }
   fp = fopen(pffmtable_file, "wb");
-  shapetable_cutoffs.Serialize(fp);
-  for (int c = 0; c < unicharset.size(); ++c) {
-    const char *unichar = unicharset.id_to_unichar(c);
-    if (strcmp(unichar, " ") == 0) {
-      unichar = "NULL";
+  if (fp == nullptr) {
+    tprintf("Error, failed to open file \"%s\"\n", pffmtable_file);
+  } else {
+    shapetable_cutoffs.Serialize(fp);
+    for (int c = 0; c < unicharset.size(); ++c) {
+      const char *unichar = unicharset.id_to_unichar(c);
+      if (strcmp(unichar, " ") == 0) {
+        unichar = "NULL";
+      }
+      fprintf(fp, "%s %d\n", unichar, unichar_cutoffs[c]);
     }
-    fprintf(fp, "%s %d\n", unichar, unichar_cutoffs[c]);
+    fclose(fp);
   }
-  fclose(fp);
   free_int_templates(int_templates);
   delete classify;
 }
@@ -699,7 +705,7 @@ void MasterTrainer::DisplaySamples(const char* unichar_str1, int cloud_font,
   if (class_id2 != INVALID_UNICHAR_ID && canonical_font >= 0) {
     const TrainingSample* sample = samples_.GetCanonicalSample(canonical_font,
                                                                class_id2);
-    for (int f = 0; f < sample->num_features(); ++f) {
+    for (uint32_t f = 0; f < sample->num_features(); ++f) {
       RenderIntFeature(f_window, &sample->features()[f], ScrollView::RED);
     }
   }

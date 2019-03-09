@@ -19,8 +19,8 @@
 #ifndef TESSERACT_LSTM_NETWORKIO_H_
 #define TESSERACT_LSTM_NETWORKIO_H_
 
-#include <math.h>
-#include <stdio.h>
+#include <cmath>
+#include <cstdio>
 #include <vector>
 
 #include "genericvector.h"
@@ -338,10 +338,6 @@ class NetworkIO {
   bool int_mode_;
   // Stride for 2d input data.
   StrideMap stride_map_;
-  // Holds the optimal integer multiplier for this machine.
-  // This is a leaked, lazily initialized singleton, and is used for computing
-  // padding to apply to i_ for SIMD use.
-  static IntSimdMatrix* multiplier_;
 };
 
 }  // namespace tesseract.

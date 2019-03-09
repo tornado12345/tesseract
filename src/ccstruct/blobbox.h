@@ -1,8 +1,8 @@
 /**********************************************************************
  * File:        blobbox.h  (Formerly blobnbox.h)
  * Description: Code for the textord blob class.
- * Author:					Ray Smith
- * Created:					Thu Jul 30 09:08:51 BST 1992
+ * Author:      Ray Smith
+ * Created:     Thu Jul 30 09:08:51 BST 1992
  *
  * (C) Copyright 1992, Hewlett-Packard Ltd.
  ** Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,14 +17,30 @@
  *
  **********************************************************************/
 
-#ifndef           BLOBBOX_H
-#define           BLOBBOX_H
+#ifndef BLOBBOX_H
+#define BLOBBOX_H
 
-#include          "clst.h"
-#include          "elst2.h"
-#include          "werd.h"
-#include          "ocrblock.h"
-#include          "statistc.h"
+#include <cinttypes>           // for PRId32
+#include <cmath>               // for sqrt
+#include <cstdint>             // for int16_t, int32_t
+#include "elst.h"              // for ELIST_ITERATOR, ELISTIZEH, ELIST_LINK
+#include "elst2.h"             // for ELIST2_ITERATOR, ELIST2IZEH, ELIST2_LINK
+#include "errcode.h"           // for ASSERT_HOST
+#include "ocrblock.h"          // for BLOCK
+#include "params.h"            // for DoubleParam, double_VAR_H
+#include "pdblock.h"           // for PDBLK
+#include "points.h"            // for FCOORD, ICOORD, ICOORDELT_LIST
+#include "quspline.h"          // for QSPLINE
+#include "rect.h"              // for TBOX
+#include "scrollview.h"        // for ScrollView, ScrollView::Color
+#include "statistc.h"          // for STATS
+#include "stepblob.h"          // for C_BLOB
+#include "tprintf.h"           // for tprintf
+#include "werd.h"              // for WERD_LIST
+
+class C_OUTLINE;
+
+struct Pix;
 
 enum PITCH_TYPE
 {
@@ -476,7 +492,7 @@ class BLOBNBOX:public ELIST_LINK
     right_rule_ = 0;
     left_crossing_rule_ = 0;
     right_crossing_rule_ = 0;
-    if (area_stroke_width_ == 0.0f && area > 0 && cblob() != nullptr 
+    if (area_stroke_width_ == 0.0f && area > 0 && cblob() != nullptr
         && cblob()->perimeter()!=0)
       area_stroke_width_ = 2.0f * area / cblob()->perimeter();
     owner_ = nullptr;
@@ -503,7 +519,7 @@ class BLOBNBOX:public ELIST_LINK
   C_BLOB *cblob_ptr;            // edgestep blob
   TBOX box;                     // bounding box
   TBOX red_box;                 // bounding box
-  int area:30;                  // enclosed area
+  signed int area:30;           // enclosed area
   unsigned joined : 1;          // joined to prev
   unsigned reduced : 1;         // reduced box set
   int repeated_set_;            // id of the set of repeated blobs
@@ -639,9 +655,9 @@ class TO_ROW: public ELIST2_LINK
     }
 
                                  // true when dead
-    BOOL8 merged;
-    BOOL8 all_caps;              // had no ascenders
-    BOOL8 used_dm_model;         // in guessing pitch
+    bool merged;
+    bool all_caps;              // had no ascenders
+    bool used_dm_model;         // in guessing pitch
     int16_t projection_left;       // start of projection
     int16_t projection_right;      // start of projection
     PITCH_TYPE pitch_decision;   // how strong is decision

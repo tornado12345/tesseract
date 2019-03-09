@@ -1,7 +1,7 @@
 /**********************************************************************
  * File:        pageres.h  (Formerly page_res.h)
  * Description: Results classes used by control.c
- * Author:    Phil Cheatle
+ * Author:      Phil Cheatle
  * Created:     Tue Sep 22 08:42:49 BST 1992
  *
  * (C) Copyright 1992, Hewlett-Packard Ltd.
@@ -16,26 +16,45 @@
  ** limitations under the License.
  *
  **********************************************************************/
-#ifndef           PAGERES_H
-#define           PAGERES_H
 
-#include "blamer.h"
-#include "blobs.h"
-#include "boxword.h"
-#include "elst.h"
-#include "genericvector.h"
-#include "normalis.h"
-#include "ocrblock.h"
-#include "ocrrow.h"
-#include "params_training_featdef.h"
-#include "ratngs.h"
-#include "rejctmap.h"
-#include "seam.h"
-#include "werd.h"
+#ifndef PAGERES_H
+#define PAGERES_H
+
+#include <cstdint>             // for int32_t, int16_t
+#include <set>                 // for std::pair
+#include <vector>              // for std::vector
+#include <sys/types.h>         // for int8_t
+#include "blamer.h"            // for BlamerBundle (ptr only), IRR_NUM_REASONS
+#include "clst.h"              // for CLIST_ITERATOR, CLISTIZEH
+#include "elst.h"              // for ELIST_ITERATOR, ELIST_LINK, ELISTIZEH
+#include "genericvector.h"     // for GenericVector, PointerVector (ptr only)
+#include "matrix.h"            // for MATRIX
+#include "normalis.h"          // for DENORM
+#include "ratngs.h"            // for WERD_CHOICE, BLOB_CHOICE (ptr only)
+#include "rect.h"              // for TBOX
+#include "rejctmap.h"          // for REJMAP
+#include "strngs.h"            // for STRING
+#include "unichar.h"           // for UNICHAR_ID, INVALID_UNICHAR_ID
+#include "unicharset.h"        // for UNICHARSET, UNICHARSET::Direction, UNI...
+#include "werd.h"              // for WERD, W_BOL, W_EOL
+
+class BLOCK;
+class BLOCK_LIST;
+class BLOCK_RES;
+class ROW;
+class ROW_RES;
+class SEAM;
+class WERD_RES;
+
+struct Pix;
+struct TWERD;
+
+template <class R, class A1, class A2> class TessResultCallback2;
 
 namespace tesseract {
-struct FontInfo;
-class Tesseract;
+  class BoxWord;
+  class Tesseract;
+  struct FontInfo;
 }
 using tesseract::FontInfo;
 
@@ -60,7 +79,7 @@ class PAGE_RES {                 // page result
   int32_t char_count;
   int32_t rej_count;
   BLOCK_RES_LIST block_res_list;
-  BOOL8 rejected;
+  bool rejected;
   // Updated every time PAGE_RES_IT iterating on this PAGE_RES moves to
   // the next word. This pointer is not owned by PAGE_RES class.
   WERD_CHOICE **prev_word_best_choice;
@@ -75,7 +94,7 @@ class PAGE_RES {                 // page result
   inline void Init() {
     char_count = 0;
     rej_count = 0;
-    rejected = FALSE;
+    rejected = false;
     prev_word_best_choice = nullptr;
     blame_reasons.init_to_size(IRR_NUM_REASONS, 0);
   }
@@ -86,8 +105,7 @@ class PAGE_RES {                 // page result
            BLOCK_LIST *block_list,   // real blocks
            WERD_CHOICE **prev_word_best_choice_ptr);
 
-  ~PAGE_RES () {               // destructor
-  }
+  ~PAGE_RES () = default;
 };
 
 /*************************************************************************
@@ -102,20 +120,18 @@ class BLOCK_RES:public ELIST_LINK {
   int16_t font_class;            //
   int16_t row_count;
   float x_height;
-  BOOL8 font_assigned;         // block already
+  bool font_assigned;         // block already
   //      processed
-  BOOL8 bold;                  // all bold
-  BOOL8 italic;                // all italic
+  bool bold;                  // all bold
+  bool italic;                // all italic
 
   ROW_RES_LIST row_res_list;
 
-  BLOCK_RES() {
-  }                            // empty constructor
+  BLOCK_RES() = default;
 
   BLOCK_RES(bool merge_similar_words, BLOCK *the_block);  // real block
 
-  ~BLOCK_RES () {              // destructor
-  }
+  ~BLOCK_RES () = default;
 };
 
 /*************************************************************************
@@ -130,13 +146,11 @@ class ROW_RES:public ELIST_LINK {
   int32_t whole_word_rej_count;  // rejs in total rej wds
   WERD_RES_LIST word_res_list;
 
-  ROW_RES() {
-  }                            // empty constructor
+  ROW_RES() = default;
 
   ROW_RES(bool merge_similar_words, ROW *the_row);  // real row
 
-  ~ROW_RES() {                // destructor
-  }
+  ~ROW_RES() = default;
 };
 
 /*************************************************************************
@@ -206,6 +220,8 @@ class WERD_RES : public ELIST_LINK {
   // Gaps between blobs in chopped_word. blob_gaps[i] is the gap between
   // blob i and blob i+1.
   GenericVector<int> blob_gaps;
+  // Stores the lstm choices of every timestep
+  std::vector<std::vector<std::pair<const char*, float>>> timesteps;
   // Ratings matrix contains classifier choices for each classified combination
   // of blobs. The dimension is the same as the number of blobs in chopped_word
   // and the leading diagonal corresponds to classifier results of the blobs
@@ -269,7 +285,7 @@ class WERD_RES : public ELIST_LINK {
   // TODO(rays) Add more documentation here.
   WERD_CHOICE *ep_choice;      // ep text TODO(rays) delete this.
   REJMAP reject_map;           // best_choice rejects
-  BOOL8 tess_failed;
+  bool tess_failed;
   /*
     If tess_failed is TRUE, one of the following tests failed when Tess
     returned:
@@ -277,9 +293,9 @@ class WERD_RES : public ELIST_LINK {
     - The best_choice string contained ALL blanks;
     - The best_choice string was zero length
   */
-  BOOL8 tess_accepted;          // Tess thinks its ok?
-  BOOL8 tess_would_adapt;       // Tess would adapt?
-  BOOL8 done;                   // ready for output?
+  bool tess_accepted;          // Tess thinks its ok?
+  bool tess_would_adapt;       // Tess would adapt?
+  bool done;                   // ready for output?
   bool small_caps;              // word appears to be small caps
   bool odd_size;                // word is bigger than line or leader dots.
   int8_t italic;
@@ -289,8 +305,8 @@ class WERD_RES : public ELIST_LINK {
   const FontInfo* fontinfo2;
   int8_t fontinfo_id_count;       // number of votes
   int8_t fontinfo_id2_count;      // number of votes
-  BOOL8 guessed_x_ht;
-  BOOL8 guessed_caps_ht;
+  bool guessed_x_ht;
+  bool guessed_caps_ht;
   CRUNCH_MODE unlv_crunch_mode;
   float x_height;              // post match estimate
   float caps_height;           // post match estimate
@@ -315,9 +331,9 @@ class WERD_RES : public ELIST_LINK {
     Combination words are FOLLOWED by the sequence of part_of_combo words
     which they combine.
   */
-  BOOL8 combination;           //of two fuzzy gap wds
-  BOOL8 part_of_combo;         //part of a combo
-  BOOL8 reject_spaces;         //Reject spacing?
+  bool combination;           //of two fuzzy gap wds
+  bool part_of_combo;         //part of a combo
+  bool reject_spaces;         //Reject spacing?
 
   WERD_RES() {
     InitNonPointers();
@@ -347,10 +363,10 @@ class WERD_RES : public ELIST_LINK {
         blob_index >= best_choice->length())
       return nullptr;
     UNICHAR_ID id = best_choice->unichar_id(blob_index);
-    if (id < 0 || id >= uch_set->size() || id == INVALID_UNICHAR_ID)
+    if (id < 0 || id >= uch_set->size())
       return nullptr;
     UNICHAR_ID mirrored = uch_set->get_mirror(id);
-    if (in_rtl_context && mirrored > 0 && mirrored != INVALID_UNICHAR_ID)
+    if (in_rtl_context && mirrored > 0)
       id = mirrored;
     return uch_set->id_to_unichar_ext(id);
   }
@@ -359,7 +375,7 @@ class WERD_RES : public ELIST_LINK {
     if (blob_index < 0 || blob_index >= raw_choice->length())
       return nullptr;
     UNICHAR_ID id = raw_choice->unichar_id(blob_index);
-    if (id < 0 || id >= uch_set->size() || id == INVALID_UNICHAR_ID)
+    if (id < 0 || id >= uch_set->size())
       return nullptr;
     return uch_set->id_to_unichar(id);
   }
@@ -382,8 +398,7 @@ class WERD_RES : public ELIST_LINK {
       UNICHARSET::Direction dir =
           uch_set->get_direction(unichar_id);
       if (dir == UNICHARSET::U_RIGHT_TO_LEFT ||
-          dir == UNICHARSET::U_RIGHT_TO_LEFT_ARABIC ||
-          dir == UNICHARSET::U_ARABIC_NUMBER)
+          dir == UNICHARSET::U_RIGHT_TO_LEFT_ARABIC)
         return true;
     }
     return false;
@@ -397,7 +412,8 @@ class WERD_RES : public ELIST_LINK {
       if (unichar_id < 0 || unichar_id >= uch_set->size())
         continue;  // Ignore illegal chars.
       UNICHARSET::Direction dir = uch_set->get_direction(unichar_id);
-      if (dir == UNICHARSET::U_LEFT_TO_RIGHT)
+      if (dir == UNICHARSET::U_LEFT_TO_RIGHT ||
+          dir == UNICHARSET::U_ARABIC_NUMBER)
         return true;
     }
     return false;
@@ -660,8 +676,7 @@ class PAGE_RES_IT {
  public:
   PAGE_RES * page_res;         // page being iterated
 
-  PAGE_RES_IT() {
-  }                            // empty contructor
+  PAGE_RES_IT() = default;
 
   PAGE_RES_IT(PAGE_RES *the_page_res) {    // page result
     page_res = the_page_res;
@@ -670,7 +685,10 @@ class PAGE_RES_IT {
 
   // Do two PAGE_RES_ITs point at the same word?
   // This is much cheaper than cmp().
-  bool operator ==(const PAGE_RES_IT &other) const;
+  bool operator ==(const PAGE_RES_IT &other) const {
+    return word_res == other.word_res && row_res == other.row_res &&
+           block_res == other.block_res;
+  }
 
   bool operator !=(const PAGE_RES_IT &other) const {return !(*this == other); }
 
@@ -772,5 +790,9 @@ class PAGE_RES_IT {
   BLOCK_RES_IT block_res_it;   // iterators
   ROW_RES_IT row_res_it;
   WERD_RES_IT word_res_it;
+  // Iterators used to get the state of word_res_it for the current word.
+  // Since word_res_it is 2 words further on, this is otherwise hard to do.
+  WERD_RES_IT wr_it_of_current_word;
+  WERD_RES_IT wr_it_of_next_word;
 };
 #endif

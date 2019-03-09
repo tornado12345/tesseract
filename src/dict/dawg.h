@@ -50,11 +50,11 @@
 ----------------------------------------------------------------------*/
 class UNICHARSET;
 
-typedef uint64_t EDGE_RECORD;
-typedef EDGE_RECORD *EDGE_ARRAY;
-typedef int64_t EDGE_REF;
-typedef int64_t NODE_REF;
-typedef EDGE_REF *NODE_MAP;
+using EDGE_RECORD = uint64_t;
+using EDGE_ARRAY = EDGE_RECORD *;
+using EDGE_REF = int64_t;
+using NODE_REF = int64_t;
+using NODE_MAP = EDGE_REF *;
 
 namespace tesseract {
 
@@ -65,9 +65,9 @@ struct NodeChild {
   NodeChild(): unichar_id(INVALID_UNICHAR_ID), edge_ref(NO_EDGE) {}
 };
 
-typedef GenericVector<NodeChild> NodeChildVector;
-typedef GenericVector<int> SuccessorList;
-typedef GenericVector<SuccessorList *> SuccessorListsVector;
+using NodeChildVector = GenericVector<NodeChild>;
+using SuccessorList = GenericVector<int>;
+using SuccessorListsVector = GenericVector<SuccessorList *>;
 
 enum DawgType {
   DAWG_TYPE_PUNCTUATION,
@@ -129,7 +129,7 @@ class Dawg {
   inline const STRING &lang() const { return lang_; }
   inline PermuterType permuter() const { return perm_; }
 
-  virtual ~Dawg() {}
+  virtual ~Dawg();
 
   /// Returns true if the given word is in the Dawg.
   bool word_in_dawg(const WERD_CHOICE &word) const;
@@ -285,7 +285,7 @@ class Dawg {
   void init(int unicharset_size);
 
   /// Matches all of the words that are represented by this string.
-  /// If wilcard is set to something other than INVALID_UNICHAR_ID,
+  /// If wildcard is set to something other than INVALID_UNICHAR_ID,
   /// the *'s in this string are interpreted as wildcards.
   /// WERD_CHOICE param is not passed by const so that wildcard searches
   /// can modify it and work without having to copy WERD_CHOICEs.

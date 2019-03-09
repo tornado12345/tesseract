@@ -21,11 +21,15 @@
 
 #include "thresholder.h"
 
-#include <string.h>
+#include <cstdint>      // for uint32_t
+#include <cstring>
 
 #include "otsuthr.h"
+#include "tprintf.h"    // for tprintf
 
-#include "openclwrapper.h"
+#if defined(USE_OPENCL)
+#include "openclwrapper.h" // for OpenclDevice
+#endif
 
 namespace tesseract {
 
@@ -111,7 +115,6 @@ void ImageThresholder::SetImage(const unsigned char* imagedata,
   default:
     tprintf("Cannot convert RAW image to Pix with bpp = %d\n", bpp);
   }
-  pixSetYRes(pix, 300);
   SetImage(pix);
   pixDestroy(&pix);
 }
@@ -263,7 +266,6 @@ Pix* ImageThresholder::GetPixRectGrey() {
 // Otsu thresholds the rectangle, taking the rectangle from *this.
 void ImageThresholder::OtsuThresholdRectToPix(Pix* src_pix,
                                               Pix** out_pix) const {
-  PERF_COUNT_START("OtsuThresholdRectToPix")
   int* thresholds;
   int* hi_values;
 
@@ -272,8 +274,8 @@ void ImageThresholder::OtsuThresholdRectToPix(Pix* src_pix,
   // only use opencl if compiled w/ OpenCL and selected device is opencl
 #ifdef USE_OPENCL
   OpenclDevice od;
-  if ((num_channels == 4 || num_channels == 1) &&
-      od.selectedDeviceIsOpenCL() && rect_top_ == 0 && rect_left_ == 0 ) {
+  if (num_channels == 4 &&
+      od.selectedDeviceIsOpenCL() && rect_top_ == 0 && rect_left_ == 0) {
     od.ThresholdRectToPixOCL((unsigned char*)pixGetData(src_pix), num_channels,
                              pixGetWpl(src_pix) * 4, thresholds, hi_values,
                              out_pix /*pix_OCL*/, rect_height_, rect_width_,
@@ -286,8 +288,6 @@ void ImageThresholder::OtsuThresholdRectToPix(Pix* src_pix,
 #endif
   delete [] thresholds;
   delete [] hi_values;
-
-  PERF_COUNT_END
 }
 
 /// Threshold the rectangle, taking everything except the src_pix
@@ -299,7 +299,6 @@ void ImageThresholder::ThresholdRectToPix(Pix* src_pix,
                                           const int* thresholds,
                                           const int* hi_values,
                                           Pix** pix) const {
-  PERF_COUNT_START("ThresholdRectToPix")
   *pix = pixCreate(rect_width_, rect_height_, 1);
   uint32_t* pixdata = pixGetData(*pix);
   int wpl = pixGetWpl(*pix);
@@ -325,8 +324,6 @@ void ImageThresholder::ThresholdRectToPix(Pix* src_pix,
         SET_DATA_BIT(pixline, x);
     }
   }
-
-  PERF_COUNT_END
 }
 
 }  // namespace tesseract.

@@ -30,6 +30,8 @@
 #include "imagefind.h"
 #include "workingpartset.h"
 
+#include <algorithm>
+
 namespace tesseract {
 
 ELIST2IZE(ColPartition)
@@ -78,7 +80,7 @@ const int kMaxColorDistance = 900;
 // Vertical is the direction of logical vertical on the possibly skewed image.
 ColPartition::ColPartition(BlobRegionType blob_type, const ICOORD& vertical)
   : left_margin_(-INT32_MAX), right_margin_(INT32_MAX),
-    median_bottom_(INT32_MAX), median_top_(-INT32_MAX), median_size_(0),
+    median_bottom_(INT32_MAX), median_top_(-INT32_MAX), median_height_(0),
     median_left_(INT32_MAX), median_right_(-INT32_MAX), median_width_(0),
     blob_type_(blob_type), flow_(BTFT_NONE), good_blob_score_(0),
     good_width_(false), good_column_(false),
@@ -161,7 +163,9 @@ ColPartition* ColPartition::MakeLinePartition(BlobRegionType blob_type,
   part->bounding_box_ = TBOX(left, bottom, right, top);
   part->median_bottom_ = bottom;
   part->median_top_ = top;
-  part->median_size_ = top - bottom;
+  part->median_height_ = top - bottom;
+  part->median_left_ = left;
+  part->median_right_ = right;
   part->median_width_ = right - left;
   part->left_key_ = part->BoxLeftKey();
   part->right_key_ = part->BoxRightKey();
@@ -412,7 +416,7 @@ bool ColPartition::MatchingSizes(const ColPartition& other) const {
   if (blob_type_ == BRT_VERT_TEXT || other.blob_type_ == BRT_VERT_TEXT)
     return !TabFind::DifferentSizes(median_width_, other.median_width_);
   else
-    return !TabFind::DifferentSizes(median_size_, other.median_size_);
+    return !TabFind::DifferentSizes(median_height_, other.median_height_);
 }
 
 // Returns true if there is no tabstop violation in merging this and other.
@@ -643,7 +647,7 @@ ColPartition* ColPartition::SingletonPartner(bool upper) {
 // Merge with the other partition and delete it.
 void ColPartition::Absorb(ColPartition* other, WidthCallback* cb) {
   // The result has to either own all of the blobs or none of them.
-  // Verify the flag is consisent.
+  // Verify the flag is consistent.
   ASSERT_HOST(owns_blobs() == other->owns_blobs());
   // TODO(nbeato): check owns_blobs better. Right now owns_blobs
   // should always be true when this is called. So there is no issues.
@@ -659,10 +663,12 @@ void ColPartition::Absorb(ColPartition* other, WidthCallback* cb) {
   // Update the special_blobs_densities_.
   memset(special_blobs_densities_, 0, sizeof(special_blobs_densities_));
   for (int type = 0; type < BSTT_COUNT; ++type) {
-    int w1 = boxes_.length(), w2 = other->boxes_.length();
+    unsigned w1 = boxes_.length();
+    unsigned w2 = other->boxes_.length();
     float new_val = special_blobs_densities_[type] * w1 +
         other->special_blobs_densities_[type] * w2;
     if (!w1 || !w2) {
+      ASSERT_HOST((w1 + w2) > 0);
       special_blobs_densities_[type] = new_val / (w1 + w2);
     }
   }
@@ -682,8 +688,8 @@ void ColPartition::Absorb(ColPartition* other, WidthCallback* cb) {
       bbox2->set_owner(this);
     it.add_to_end(bbox2);
   }
-  left_margin_ = MIN(left_margin_, other->left_margin_);
-  right_margin_ = MAX(right_margin_, other->right_margin_);
+  left_margin_ = std::min(left_margin_, other->left_margin_);
+  right_margin_ = std::max(right_margin_, other->right_margin_);
   if (other->left_key_ < left_key_) {
     left_key_ = other->left_key_;
     left_key_tab_ = other->left_key_tab_;
@@ -900,14 +906,14 @@ void ColPartition::ComputeLimits() {
       blob_type() == BRT_POLYIMAGE) {
     median_top_ = bounding_box_.top();
     median_bottom_ = bounding_box_.bottom();
-    median_size_ = bounding_box_.height();
+    median_height_ = bounding_box_.height();
     median_left_ = bounding_box_.left();
     median_right_ = bounding_box_.right();
     median_width_ = bounding_box_.width();
   } else {
     STATS top_stats(bounding_box_.bottom(), bounding_box_.top() + 1);
     STATS bottom_stats(bounding_box_.bottom(), bounding_box_.top() + 1);
-    STATS size_stats(0, bounding_box_.height() + 1);
+    STATS height_stats(0, bounding_box_.height() + 1);
     STATS left_stats(bounding_box_.left(), bounding_box_.right() + 1);
     STATS right_stats(bounding_box_.left(), bounding_box_.right() + 1);
     STATS width_stats(0, bounding_box_.width() + 1);
@@ -918,7 +924,7 @@ void ColPartition::ComputeLimits() {
         int area = box.area();
         top_stats.add(box.top(), area);
         bottom_stats.add(box.bottom(), area);
-        size_stats.add(box.height(), area);
+        height_stats.add(box.height(), area);
         left_stats.add(box.left(), area);
         right_stats.add(box.right(), area);
         width_stats.add(box.width(), area);
@@ -926,7 +932,7 @@ void ColPartition::ComputeLimits() {
     }
     median_top_ = static_cast<int>(top_stats.median() + 0.5);
     median_bottom_ = static_cast<int>(bottom_stats.median() + 0.5);
-    median_size_ = static_cast<int>(size_stats.median() + 0.5);
+    median_height_ = static_cast<int>(height_stats.median() + 0.5);
     median_left_ = static_cast<int>(left_stats.median() + 0.5);
     median_right_ = static_cast<int>(right_stats.median() + 0.5);
     median_width_ = static_cast<int>(width_stats.median() + 0.5);
@@ -979,7 +985,7 @@ void ColPartition::SetPartitionType(int resolution, ColPartitionSet* columns) {
   ColumnSpanningType span_type =
       columns->SpanningType(resolution,
                             bounding_box_.left(), bounding_box_.right(),
-                            MIN(bounding_box_.height(), bounding_box_.width()),
+                            std::min(bounding_box_.height(), bounding_box_.width()),
                             MidY(), left_margin_, right_margin_,
                             &first_column_, &last_column_,
                             &first_spanned_col);
@@ -1063,7 +1069,7 @@ void ColPartition::ColumnRange(int resolution, ColPartitionSet* columns,
   ColumnSpanningType span_type =
       columns->SpanningType(resolution,
                             bounding_box_.left(), bounding_box_.right(),
-                            MIN(bounding_box_.height(), bounding_box_.width()),
+                            std::min(bounding_box_.height(), bounding_box_.width()),
                             MidY(), left_margin_, right_margin_,
                             first_col, last_col,
                             &first_spanned_col);
@@ -1107,8 +1113,8 @@ bool ColPartition::MarkAsLeaderIfMonospaced() {
   }
   double median_gap = gap_stats.median();
   double median_width = width_stats.median();
-  double max_width = MAX(median_gap, median_width);
-  double min_width = MIN(median_gap, median_width);
+  double max_width = std::max(median_gap, median_width);
+  double min_width = std::min(median_gap, median_width);
   double gap_iqr = gap_stats.ile(0.75f) - gap_stats.ile(0.25f);
   if (textord_debug_tabfind >= 4) {
     tprintf("gap iqr = %g, blob_count=%d, limits=%g,%g\n",
@@ -1147,7 +1153,6 @@ bool ColPartition::MarkAsLeaderIfMonospaced() {
       bool modified_blob_list = false;
       for (it.mark_cycle_pt(); !it.cycled_list(); it.forward()) {
         BLOBNBOX* blob = it.data();
-        TBOX box = blob->bounding_box();
         // If the first or last blob is spaced too much, don't mark it.
         if (it.at_first()) {
           int gap = it.data_relative(1)->bounding_box().left() -
@@ -1339,7 +1344,7 @@ bool ColPartition::HasGoodBaseline() {
     width = last_pt.x() - first_pt.x();
   }
   // Maximum median error allowed to be a good text line.
-  if (height_count == 0) 
+  if (height_count == 0)
     return false;
   double max_error = kMaxBaselineError * total_height / height_count;
   ICOORD start_pt, end_pt;
@@ -1488,23 +1493,23 @@ void ColPartition::LineSpacingBlocks(const ICOORD& bleft, const ICOORD& tright,
                   " sizes %d %d %d\n",
                   part->top_spacing(), part->bottom_spacing(),
                   next_part->top_spacing(), next_part->bottom_spacing(),
-                  part->median_size(), next_part->median_size(),
-                  third_part != nullptr ? third_part->median_size() : 0);
+                  part->median_height(), next_part->median_height(),
+                  third_part != nullptr ? third_part->median_height() : 0);
         }
         // We can only consider adding the next line to the block if the sizes
         // match and the lines are close enough for their size.
         if (part->SizesSimilar(*next_part) &&
-            next_part->median_size() * kMaxSameBlockLineSpacing >
+            next_part->median_height() * kMaxSameBlockLineSpacing >
                 part->bottom_spacing() &&
-            part->median_size() * kMaxSameBlockLineSpacing >
+            part->median_height() * kMaxSameBlockLineSpacing >
                 part->top_spacing()) {
           // Even now, we can only add it as long as the third line doesn't
           // match in the same way and have a smaller bottom spacing.
           if (third_part == nullptr ||
               !next_part->SizesSimilar(*third_part) ||
-              third_part->median_size() * kMaxSameBlockLineSpacing <=
+              third_part->median_height() * kMaxSameBlockLineSpacing <=
                   next_part->bottom_spacing() ||
-              next_part->median_size() * kMaxSameBlockLineSpacing <=
+              next_part->median_height() * kMaxSameBlockLineSpacing <=
                   next_part->top_spacing() ||
                   next_part->bottom_spacing() > part->bottom_spacing()) {
             // Add to the current block.
@@ -1528,7 +1533,7 @@ void ColPartition::LineSpacingBlocks(const ICOORD& bleft, const ICOORD& tright,
         tprintf("Spacings equal: upper:%d/%d, lower:%d/%d, median:%d/%d\n",
                 part->top_spacing(), part->bottom_spacing(),
                 next_part->top_spacing(), next_part->bottom_spacing(),
-                part->median_size(), next_part->median_size());
+                part->median_height(), next_part->median_height());
       }
     }
   }
@@ -1559,7 +1564,7 @@ static TO_BLOCK* MoveBlobsToBlock(bool vertical_text, int line_spacing,
   // that have have to continue to exist until the part grid is deleted.
   // Compute the median blob size as we go, as the block needs to know.
   TBOX block_box(block->pdblk.bounding_box());
-  STATS sizes(0, MAX(block_box.width(), block_box.height()));
+  STATS sizes(0, std::max(block_box.width(), block_box.height()));
   bool text_type = block->pdblk.poly_block()->IsText();
   ColPartition_IT it(block_parts);
   TO_BLOCK* to_block = new TO_BLOCK(block);
@@ -1643,7 +1648,7 @@ TO_BLOCK* ColPartition::MakeBlock(const ICOORD& bleft, const ICOORD& tright,
   // put the average spacing in each partition, so we can just take the
   // linespacing from the first partition.
   int line_spacing = part->bottom_spacing();
-  if (line_spacing < part->median_size())
+  if (line_spacing < part->median_height())
     line_spacing = part->bounding_box().height();
   ICOORDELT_LIST vertices;
   ICOORDELT_IT vert_it(&vertices);
@@ -1711,7 +1716,7 @@ TO_BLOCK* ColPartition::MakeVerticalTextBlock(const ICOORD& bleft,
 TO_ROW* ColPartition::MakeToRow() {
   BLOBNBOX_C_IT blob_it(&boxes_);
   TO_ROW* row = nullptr;
-  int line_size = IsVerticalType() ? median_width_ : median_size_;
+  int line_size = IsVerticalType() ? median_width_ : median_height_;
   // Add all the blobs to a single TO_ROW.
   for (; !blob_it.empty(); blob_it.forward()) {
     BLOBNBOX* blob = blob_it.extract();
@@ -1742,7 +1747,7 @@ ColPartition* ColPartition::ShallowCopy() const {
          sizeof(special_blobs_densities_));
   part->median_bottom_ = median_bottom_;
   part->median_top_ = median_top_;
-  part->median_size_ = median_size_;
+  part->median_height_ = median_height_;
   part->median_left_ = median_left_;
   part->median_right_ = median_right_;
   part->median_width_ = median_width_;
@@ -2099,8 +2104,8 @@ void ColPartition::RefinePartnersByOverlap(bool upper,
   int best_overlap = 0;
   for (it.mark_cycle_pt(); !it.cycled_list(); it.forward()) {
     ColPartition* partner = it.data();
-    int overlap = MIN(bounding_box_.right(), partner->bounding_box_.right())
-                - MAX(bounding_box_.left(), partner->bounding_box_.left());
+    int overlap = std::min(bounding_box_.right(), partner->bounding_box_.right())
+                - std::max(bounding_box_.left(), partner->bounding_box_.left());
     if (overlap > best_overlap) {
       best_overlap = overlap;
       best_partner = partner;
@@ -2133,9 +2138,9 @@ bool ColPartition::ThisPartitionBetter(BLOBNBOX* bbox,
     return true;
   int top = box.top();
   int bottom = box.bottom();
-  int this_overlap = MIN(top, median_top_) - MAX(bottom, median_bottom_);
-  int other_overlap = MIN(top, other.median_top_) -
-                      MAX(bottom, other.median_bottom_);
+  int this_overlap = std::min(top, median_top_) - std::max(bottom, median_bottom_);
+  int other_overlap = std::min(top, other.median_top_) -
+          std::max(bottom, other.median_bottom_);
   int this_miss = median_top_ - median_bottom_ - this_overlap;
   int other_miss = other.median_top_ - other.median_bottom_ - other_overlap;
   if (TabFind::WithinTestRegion(3, box.left(), box.bottom())) {
@@ -2358,9 +2363,9 @@ bool ColPartition::SpacingEqual(int spacing, int resolution) const {
 // match to within suitable margins dictated by the image resolution.
 bool ColPartition::SpacingsEqual(const ColPartition& other,
                                  int resolution) const {
-  int bottom_error = MAX(BottomSpacingMargin(resolution),
+  int bottom_error = std::max(BottomSpacingMargin(resolution),
                          other.BottomSpacingMargin(resolution));
-  int top_error = MAX(TopSpacingMargin(resolution),
+  int top_error = std::max(TopSpacingMargin(resolution),
                       other.TopSpacingMargin(resolution));
   return NearlyEqual(bottom_spacing_, other.bottom_spacing_, bottom_error) &&
          (NearlyEqual(top_spacing_, other.top_spacing_, top_error) ||
@@ -2373,9 +2378,9 @@ bool ColPartition::SpacingsEqual(const ColPartition& other,
 // by the image resolution.
 bool ColPartition::SummedSpacingOK(const ColPartition& other,
                                    int spacing, int resolution) const {
-  int bottom_error = MAX(BottomSpacingMargin(resolution),
+  int bottom_error = std::max(BottomSpacingMargin(resolution),
                          other.BottomSpacingMargin(resolution));
-  int top_error = MAX(TopSpacingMargin(resolution),
+  int top_error = std::max(TopSpacingMargin(resolution),
                       other.TopSpacingMargin(resolution));
   int bottom_total = bottom_spacing_ + other.bottom_spacing_;
   int top_total = top_spacing_ + other.top_spacing_;
@@ -2394,15 +2399,15 @@ int ColPartition::BottomSpacingMargin(int resolution) const {
 // Returns a suitable spacing margin that can be applied to tops of
 // text lines, based on the resolution and the stored side_step_.
 int ColPartition::TopSpacingMargin(int resolution) const {
-  return static_cast<int>(kMaxTopSpacingFraction * median_size_ + 0.5) +
+  return static_cast<int>(kMaxTopSpacingFraction * median_height_ + 0.5) +
          BottomSpacingMargin(resolution);
 }
 
 // Returns true if the median text sizes of this and other agree to within
 // a reasonable multiplicative factor.
 bool ColPartition::SizesSimilar(const ColPartition& other) const {
-  return median_size_ <= other.median_size_ * kMaxSizeRatio &&
-         other.median_size_ <= median_size_ * kMaxSizeRatio;
+  return median_height_ <= other.median_height_ * kMaxSizeRatio &&
+         other.median_height_ <= median_height_ * kMaxSizeRatio;
 }
 
 // Helper updates margin_left and margin_right, being the bounds of the left
@@ -2417,12 +2422,12 @@ static bool UpdateLeftMargin(const ColPartition& part,
   int tr_key = part.SortKey(part_box.left(), top);
   int bl_key = part.SortKey(part.left_margin(), bottom);
   int br_key = part.SortKey(part_box.left(), bottom);
-  int left_key = MAX(tl_key, bl_key);
-  int right_key = MIN(tr_key, br_key);
+  int left_key = std::max(tl_key, bl_key);
+  int right_key = std::min(tr_key, br_key);
   if (left_key <= *margin_right && right_key >= *margin_left) {
     // This part is good - let's keep it.
-    *margin_right = MIN(*margin_right, right_key);
-    *margin_left = MAX(*margin_left, left_key);
+    *margin_right = std::min(*margin_right, right_key);
+    *margin_left = std::max(*margin_left, left_key);
     return true;
   }
   return false;
@@ -2503,12 +2508,12 @@ static bool UpdateRightMargin(const ColPartition& part,
   int tr_key = part.SortKey(part.right_margin(), top);
   int bl_key = part.SortKey(part_box.right(), bottom);
   int br_key = part.SortKey(part.right_margin(), bottom);
-  int left_key = MAX(tl_key, bl_key);
-  int right_key = MIN(tr_key, br_key);
+  int left_key = std::max(tl_key, bl_key);
+  int right_key = std::min(tr_key, br_key);
   if (left_key <= *margin_right && right_key >= *margin_left) {
     // This part is good - let's keep it.
-    *margin_right = MIN(*margin_right, right_key);
-    *margin_left = MAX(*margin_left, left_key);
+    *margin_right = std::min(*margin_right, right_key);
+    *margin_left = std::max(*margin_left, left_key);
     return true;
   }
   return false;

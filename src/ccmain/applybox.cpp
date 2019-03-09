@@ -2,7 +2,6 @@
  * File:        applybox.cpp  (Formerly applybox.c)
  * Description: Re segment rows according to box file data
  * Author:      Phil Cheatle
- * Created:     Wed Nov 24 09:11:23 GMT 1993
  *
  * (C) Copyright 1993, Hewlett-Packard Ltd.
  ** Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,15 +16,11 @@
  *
  **********************************************************************/
 
-#include <ctype.h>
-#include <string.h>
-#ifdef __UNIX__
-#include <assert.h>
-#include <errno.h>
-#endif
+#include <cctype>
+#include <cerrno>
+#include <cstring>
 #include "allheaders.h"
 #include "boxread.h"
-#include "chopper.h"
 #include "pageres.h"
 #include "unichar.h"
 #include "unicharset.h"
@@ -75,6 +70,7 @@ const double kMaxXHeightDeviationFraction = 0.125;
 
 namespace tesseract {
 
+#ifndef DISABLED_LEGACY_ENGINE
 static void clear_any_old_text(BLOCK_LIST *block_list) {
   BLOCK_IT block_it(block_list);
   for (block_it.mark_cycle_pt();
@@ -120,12 +116,8 @@ PAGE_RES* Tesseract::ApplyBoxes(const STRING& fname,
     return nullptr;  // Can't do it.
   }
 
-  int box_count = boxes.size();
+  const int box_count = boxes.size();
   int box_failures = 0;
-  // Add an empty everything to the end.
-  boxes.push_back(TBOX());
-  texts.push_back(STRING());
-  full_texts.push_back(STRING());
 
   // In word mode, we use the boxes to make a word for each box, but
   // in blob mode we use the existing words and maximally chop them first.
@@ -133,18 +125,17 @@ PAGE_RES* Tesseract::ApplyBoxes(const STRING& fname,
       nullptr : SetupApplyBoxes(boxes, block_list);
   clear_any_old_text(block_list);
 
-  for (int i = 0; i < boxes.size() - 1; i++) {
+  for (int i = 0; i < box_count; i++) {
     bool foundit = false;
     if (page_res != nullptr) {
-      if (i == 0) {
-        foundit = ResegmentCharBox(page_res, nullptr, boxes[i], boxes[i + 1],
-                                   full_texts[i].string());
-      } else {
-        foundit = ResegmentCharBox(page_res, &boxes[i-1], boxes[i],
-                                   boxes[i + 1], full_texts[i].string());
-      }
+      foundit = ResegmentCharBox(page_res,
+                                 (i == 0) ? nullptr : &boxes[i - 1],
+                                 boxes[i],
+                                 (i == box_count - 1) ? nullptr : &boxes[i + 1],
+                                 full_texts[i].string());
     } else {
-      foundit = ResegmentWordBox(block_list, boxes[i], boxes[i + 1],
+      foundit = ResegmentWordBox(block_list, boxes[i],
+                                 (i == box_count - 1) ? nullptr : &boxes[i + 1],
                                  texts[i].string());
     }
     if (!foundit) {
@@ -169,6 +160,7 @@ PAGE_RES* Tesseract::ApplyBoxes(const STRING& fname,
   TidyUp(page_res);
   return page_res;
 }
+#endif  // ndef DISABLED_LEGACY_ENGINE
 
 // Helper computes median xheight in the image.
 static double MedianXHeight(BLOCK_LIST *block_list) {
@@ -187,8 +179,8 @@ static double MedianXHeight(BLOCK_LIST *block_list) {
 /// Any row xheight that is significantly different from the median is set
 /// to the median.
 void Tesseract::PreenXHeights(BLOCK_LIST *block_list) {
-  double median_xheight = MedianXHeight(block_list);
-  double max_deviation = kMaxXHeightDeviationFraction * median_xheight;
+  const double median_xheight = MedianXHeight(block_list);
+  const double max_deviation = kMaxXHeightDeviationFraction * median_xheight;
   // Strip all fuzzy space markers to simplify the PAGE_RES.
   BLOCK_IT b_it(block_list);
   for (b_it.mark_cycle_pt(); !b_it.cycled_list(); b_it.forward()) {
@@ -196,7 +188,7 @@ void Tesseract::PreenXHeights(BLOCK_LIST *block_list) {
     ROW_IT r_it(block->row_list());
     for (r_it.mark_cycle_pt(); !r_it.cycled_list(); r_it.forward ()) {
       ROW* row = r_it.data();
-      double diff = fabs(row->x_height() - median_xheight);
+      const double diff = fabs(row->x_height() - median_xheight);
       if (diff > max_deviation) {
         if (applybox_debug) {
           tprintf("row xheight=%g, but median xheight = %g\n",
@@ -207,6 +199,8 @@ void Tesseract::PreenXHeights(BLOCK_LIST *block_list) {
     }
   }
 }
+
+#ifndef DISABLED_LEGACY_ENGINE
 
 /// Builds a PAGE_RES from the block_list in the way required for ApplyBoxes:
 /// All fuzzy spaces are removed, and all the words are maximally chopped.
@@ -303,6 +297,8 @@ void Tesseract::MaximallyChopWord(const GenericVector<TBOX>& boxes,
   word_res->FakeClassifyWord(blob_choices.size(), &blob_choices[0]);
 }
 
+#endif  // ndef DISABLED_LEGACY_ENGINE
+
 /// Helper to compute the dispute resolution metric.
 /// Disputed blob resolution. The aim is to give the blob to the most
 /// appropriate boxfile box. Most of the time it is obvious, but if
@@ -315,13 +311,14 @@ void Tesseract::MaximallyChopWord(const GenericVector<TBOX>& boxes,
 /// then the miss metric is (A-C)(B-C)/(AB) and the box with minimum
 /// miss metric gets the blob.
 static double BoxMissMetric(const TBOX& box1, const TBOX& box2) {
-  int overlap_area = box1.intersection(box2).area();
-  double miss_metric = box1.area()- overlap_area;
-  miss_metric /= box1.area();
-  miss_metric *= box2.area() - overlap_area;
-  miss_metric /= box2.area();
-  return miss_metric;
+  const int overlap_area = box1.intersection(box2).area();
+  const int a = box1.area();
+  const int b = box2.area();
+  ASSERT_HOST(a != 0 && b != 0);
+  return 1.0 * (a - overlap_area) * (b - overlap_area) / a / b;
 }
+
+#ifndef DISABLED_LEGACY_ENGINE
 
 /// Gather consecutive blobs that match the given box into the best_state
 /// and corresponding correct_text.
@@ -333,8 +330,8 @@ static double BoxMissMetric(const TBOX& box1, const TBOX& box2) {
 ///
 /// This means that occasionally, blobs may be incorrectly segmented if the
 /// chopper fails to find a suitable chop point.
-bool Tesseract::ResegmentCharBox(PAGE_RES* page_res, const TBOX *prev_box,
-                                 const TBOX& box, const TBOX& next_box,
+bool Tesseract::ResegmentCharBox(PAGE_RES* page_res, const TBOX* prev_box,
+                                 const TBOX& box, const TBOX* next_box,
                                  const char* correct_text) {
   if (applybox_debug > 1) {
     tprintf("\nAPPLY_BOX: in ResegmentCharBox() for %s\n", correct_text);
@@ -359,16 +356,18 @@ bool Tesseract::ResegmentCharBox(PAGE_RES* page_res, const TBOX *prev_box,
           break;
         if (word_res->correct_text[i + blob_count].length() > 0)
           break;  // Blob is claimed already.
-        double current_box_miss_metric = BoxMissMetric(blob_box, box);
-        double next_box_miss_metric = BoxMissMetric(blob_box, next_box);
-        if (applybox_debug > 2) {
-          tprintf("Checking blob:");
-          blob_box.print();
-          tprintf("Current miss metric = %g, next = %g\n",
-                  current_box_miss_metric, next_box_miss_metric);
+        if (next_box != nullptr) {
+          const double current_box_miss_metric = BoxMissMetric(blob_box, box);
+          const double next_box_miss_metric = BoxMissMetric(blob_box, *next_box);
+          if (applybox_debug > 2) {
+            tprintf("Checking blob:");
+            blob_box.print();
+            tprintf("Current miss metric = %g, next = %g\n",
+                    current_box_miss_metric, next_box_miss_metric);
+          }
+          if (current_box_miss_metric > next_box_miss_metric)
+            break;  // Blob is a better match for next box.
         }
-        if (current_box_miss_metric > next_box_miss_metric)
-          break;  // Blob is a better match for next box.
         char_box += blob_box;
       }
       if (blob_count > 0) {
@@ -376,7 +375,7 @@ bool Tesseract::ResegmentCharBox(PAGE_RES* page_res, const TBOX *prev_box,
           tprintf("Index [%d, %d) seem good.\n", i, i + blob_count);
         }
         if (!char_box.almost_equal(box, 3) &&
-            (box.x_gap(next_box) < -3 ||
+            ((next_box != nullptr && box.x_gap(*next_box) < -3)||
              (prev_box != nullptr && prev_box->x_gap(box) < -3))) {
           return false;
         }
@@ -392,8 +391,10 @@ bool Tesseract::ResegmentCharBox(PAGE_RES* page_res, const TBOX *prev_box,
           word_res->box_word->BlobBox(i).print();
           tprintf("Matches box:");
           box.print();
-          tprintf("With next box:");
-          next_box.print();
+          if (next_box != nullptr) {
+            tprintf("With next box:");
+            next_box->print();
+          }
         }
         // Eliminated best_state and correct_text entries for the consumed
         // blobs.
@@ -432,7 +433,7 @@ bool Tesseract::ResegmentCharBox(PAGE_RES* page_res, const TBOX *prev_box,
 /// @return false if the box was in error, which can only be caused by
 /// failing to find an overlapping blob for a box.
 bool Tesseract::ResegmentWordBox(BLOCK_LIST *block_list,
-                                 const TBOX& box, const TBOX& next_box,
+                                 const TBOX& box, const TBOX* next_box,
                                  const char* correct_text) {
   if (applybox_debug > 1) {
     tprintf("\nAPPLY_BOX: in ResegmentWordBox() for %s\n", correct_text);
@@ -466,23 +467,27 @@ bool Tesseract::ResegmentWordBox(BLOCK_LIST *block_list,
           TBOX blob_box = blob->bounding_box();
           if (!blob_box.major_overlap(box))
             continue;
-          double current_box_miss_metric = BoxMissMetric(blob_box, box);
-          double next_box_miss_metric = BoxMissMetric(blob_box, next_box);
-          if (applybox_debug > 2) {
-            tprintf("Checking blob:");
-            blob_box.print();
-            tprintf("Current miss metric = %g, next = %g\n",
-                    current_box_miss_metric, next_box_miss_metric);
+          if (next_box != nullptr) {
+            const double current_box_miss_metric = BoxMissMetric(blob_box, box);
+            const double next_box_miss_metric = BoxMissMetric(blob_box, *next_box);
+            if (applybox_debug > 2) {
+              tprintf("Checking blob:");
+              blob_box.print();
+              tprintf("Current miss metric = %g, next = %g\n",
+                      current_box_miss_metric, next_box_miss_metric);
+            }
+            if (current_box_miss_metric > next_box_miss_metric)
+              continue;  // Blob is a better match for next box.
           }
-          if (current_box_miss_metric > next_box_miss_metric)
-            continue;  // Blob is a better match for next box.
           if (applybox_debug > 2) {
             tprintf("Blob match: blob:");
             blob_box.print();
             tprintf("Matches box:");
             box.print();
-            tprintf("With next box:");
-            next_box.print();
+            if (next_box != nullptr) {
+              tprintf("With next box:");
+              next_box->print();
+            }
           }
           if (new_word == nullptr) {
             // Make a new word with a single blob.
@@ -506,7 +511,7 @@ void Tesseract::ReSegmentByClassification(PAGE_RES* page_res) {
   PAGE_RES_IT pr_it(page_res);
   WERD_RES* word_res;
   for (; (word_res = pr_it.word()) != nullptr; pr_it.forward()) {
-    WERD* word = word_res->word;
+    const WERD* word = word_res->word;
     if (word->text() == nullptr || word->text()[0] == '\0')
       continue;  // Ignore words that have no text.
     // Convert the correct text to a vector of UNICHAR_ID
@@ -525,6 +530,8 @@ void Tesseract::ReSegmentByClassification(PAGE_RES* page_res) {
     }
   }
 }
+
+#endif  // ndef DISABLED_LEGACY_ENGINE
 
 /// Converts the space-delimited string of utf8 text to a vector of UNICHAR_ID.
 /// @return false if an invalid UNICHAR_ID is encountered.
@@ -546,6 +553,9 @@ bool Tesseract::ConvertStringToUnichars(const char* utf8,
   return true;
 }
 
+#ifndef DISABLED_LEGACY_ENGINE
+
+
 /// Resegments the word to achieve the target_text from the classifier.
 /// Returns false if the re-segmentation fails.
 /// Uses brute-force combination of up to #kMaxGroupSize adjacent blobs, and
@@ -555,7 +565,7 @@ bool Tesseract::ConvertStringToUnichars(const char* utf8,
 bool Tesseract::FindSegmentation(const GenericVector<UNICHAR_ID>& target_text,
                                  WERD_RES* word_res) {
   // Classify all required combinations of blobs and save results in choices.
-  int word_length = word_res->box_word->length();
+  const int word_length = word_res->box_word->length();
   GenericVector<BLOB_CHOICE_LIST*>* choices =
       new GenericVector<BLOB_CHOICE_LIST*>[word_length];
   for (int i = 0; i < word_length; ++i) {
@@ -637,7 +647,7 @@ void Tesseract::SearchForText(const GenericVector<BLOB_CHOICE_LIST*>* choices,
     BLOB_CHOICE_IT choice_it(choices[choices_pos][length - 1]);
     for (choice_it.mark_cycle_pt(); !choice_it.cycled_list();
          choice_it.forward()) {
-      BLOB_CHOICE* choice = choice_it.data();
+      const BLOB_CHOICE* choice = choice_it.data();
       choice_rating = choice->rating();
       UNICHAR_ID class_id = choice->unichar_id();
       if (class_id == target_text[text_index]) {
@@ -756,6 +766,8 @@ void Tesseract::TidyUp(PAGE_RES* page_res) {
   }
 }
 
+#endif  // ndef DISABLED_LEGACY_ENGINE
+
 /** Logs a bad box by line in the box file and box coords.*/
 void Tesseract::ReportFailedBox(int boxfile_lineno, TBOX box,
                                 const char *box_ch, const char *err_msg) {
@@ -787,6 +799,9 @@ void Tesseract::CorrectClassifyWords(PAGE_RES* page_res) {
   }
 }
 
+#ifndef DISABLED_LEGACY_ENGINE
+
+
 /// Calls #LearnWord to extract features for labelled blobs within each word.
 /// Features are stored in an internal buffer.
 void Tesseract::ApplyBoxTraining(const STRING& fontname, PAGE_RES* page_res) {
@@ -800,5 +815,6 @@ void Tesseract::ApplyBoxTraining(const STRING& fontname, PAGE_RES* page_res) {
   tprintf("Generated training data for %d words\n", word_count);
 }
 
+#endif  // ndef DISABLED_LEGACY_ENGINE
 
 }  // namespace tesseract

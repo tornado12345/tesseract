@@ -20,17 +20,15 @@
 #ifndef TESSERACT_CSTRUCT_BOXWORD_H_
 #define TESSERACT_CSTRUCT_BOXWORD_H_
 
-#include "genericvector.h"
-#include "rect.h"
-#include "unichar.h"
+#include "genericvector.h"  // for GenericVector
+#include "rect.h"           // for TBOX
 
 class BLOCK;
-class DENORM;
-struct TWERD;
-class UNICHARSET;
 class WERD;
-class WERD_CHOICE;
-class WERD_RES;
+
+struct TWERD;
+
+template <class A1> class TessCallback1;
 
 namespace tesseract {
 
@@ -40,7 +38,7 @@ class BoxWord {
  public:
   BoxWord();
   explicit BoxWord(const BoxWord& src);
-  ~BoxWord();
+  ~BoxWord() = default;
 
   BoxWord& operator=(const BoxWord& src);
 

@@ -31,7 +31,7 @@ namespace tesseract {
 class WorkingPartSet_LIST;
 class ColSegment_LIST;
 class ColPartitionSet;
-typedef GenericVector<ColPartitionSet*> PartSetVector;
+using PartSetVector = GenericVector<ColPartitionSet*>;
 
 // ColPartitionSet is a class that holds a list of ColPartitions.
 // Its main use is in holding a candidate partitioning of the width of the
@@ -39,12 +39,11 @@ typedef GenericVector<ColPartitionSet*> PartSetVector;
 // ColPartitionSets are used in building the column layout of a page.
 class ColPartitionSet : public ELIST_LINK {
  public:
-  ColPartitionSet() {
-  }
+  ColPartitionSet() = default;
   explicit ColPartitionSet(ColPartition_LIST* partitions);
   explicit ColPartitionSet(ColPartition* partition);
 
-  ~ColPartitionSet();
+  ~ColPartitionSet() = default;
 
   // Simple accessors.
   const TBOX& bounding_box() const {
@@ -102,7 +101,7 @@ class ColPartitionSet : public ELIST_LINK {
   // by the given coords(left,right,y), with the given margins.
   // Also return the first and last column index touched by the coords and
   // the leftmost spanned column.
-  // Column indices are 2n + 1 for real colums (0 based) and even values
+  // Column indices are 2n + 1 for real columns (0 based) and even values
   // represent the gaps in between columns, with 0 being left of the leftmost.
   // resolution refers to the ppi resolution of the image. It may be 0 if only
   // the first_col and last_col are required.

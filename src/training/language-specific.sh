@@ -1,4 +1,4 @@
-#
+#!/bin/bash
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -21,8 +21,8 @@
 VALID_LANGUAGE_CODES="afr amh ara asm aze aze_cyrl bel ben bih bod bos bul cat
                       ceb ces chi_sim chi_tra chr cym cyr_lid dan deu div dzo
                       ell eng enm epo est eus fas fil fin fra frk frm gle glg
-                      grc guj hat heb hin hrv hun hye iku ind isl ita ita_old
-                      jav jpn kan kat kat_old kaz khm kir kor kur lao lat
+                      grc guj hat heb hin hrv hun hye iast iku ind isl ita ita_old
+                      jav jav_java jpn kan kat kat_old kaz khm kir kor kur lao lat
                       lat_lid lav lit mal mar mkd mlt msa mya nep nld nor ori
                       pan pol por pus ron rus san sin slk slv snd spa spa_old
                       sqi srp srp_latn swa swe syr tam tel tgk tgl tha tir tur
@@ -576,7 +576,7 @@ PERSIAN_FONTS=( \
     )
 
 AMHARIC_FONTS=( \
-    "Abyssinica SIL"
+    "Abyssinica SIL" \
     "Droid Sans Ethiopic Bold" \
     "Droid Sans Ethiopic" \
     "FreeSerif" \
@@ -602,6 +602,10 @@ BURMESE_FONTS=( \
     "Padauk Bold" \
     "Padauk" \
     "TharLon" \
+    )
+
+JAVANESE_FONTS=( \
+    "Prada" \
     )
 
 NORTH_AMERICAN_ABORIGINAL_FONTS=( \
@@ -864,6 +868,8 @@ VERTICAL_FONTS=( \
     "Baekmuk Batang Patched" \ # for kor
     )
 
+FLAGS_webtext_prefix=${FLAGS_webtext_prefix:-}
+
 # Set language-specific values for several global variables, including
 #   ${TEXT_CORPUS}
 #      holds the text corpus file for the language, used in phase F
@@ -903,6 +909,8 @@ set_lang_specific_parameters() {
   # Language to mix with the language for maximum accuracy. Defaults to eng.
   # If no language is good, set to the base language.
   MIX_LANG="eng"
+  EXPOSURES=${EXPOSURES:-}
+  FONTS=${FONTS:-}
 
   case ${lang} in
     # Latin languages.
@@ -961,6 +969,7 @@ set_lang_specific_parameters() {
     glg ) ;;
     hat ) ;;
     hrv ) ;;
+    iast ) ;;
     ind ) ;;
     isl ) ;;
     ita ) ;;
@@ -1005,7 +1014,7 @@ set_lang_specific_parameters() {
           test -z "$FONTS" && FONTS=( "${RUSSIAN_FONTS[@]}" ) ;;
 
     # Special code for performing Cyrillic language-id that is trained on
-    # Russian, Serbian, Ukranian, Belarusian, Macedonian, Tajik and Mongolian
+    # Russian, Serbian, Ukrainian, Belarusian, Macedonian, Tajik and Mongolian
     # text with the list of Russian fonts.
     cyr_lid )
           TEXT_CORPUS=${FLAGS_webtext_prefix}/cyr_lid.corpus.txt
@@ -1064,6 +1073,10 @@ set_lang_specific_parameters() {
           test -z "$FONTS" && FONTS=( "${TELUGU_FONTS[@]}" ) ;;
 
     # SouthEast Asian scripts.
+    jav_java ) MEAN_COUNT="15"
+          WORD_DAWG_FACTOR=0.15
+          TRAINING_DATA_ARGUMENTS+=" --infrequent_ratio=10000"
+          test -z "$FONTS" && FONTS=( "${JAVANESE_FONTS[@]}" ) ;;
     khm ) MEAN_COUNT="15"
           WORD_DAWG_FACTOR=0.15
           TRAINING_DATA_ARGUMENTS+=" --infrequent_ratio=10000"
@@ -1155,9 +1168,9 @@ set_lang_specific_parameters() {
 
     *) err_exit "Error: ${lang} is not a valid language code"
   esac
-  if [[ ${FLAGS_mean_count} -gt 0 ]]; then
+  if [[ ${FLAGS_mean_count:-} -gt 0 ]]; then
     TRAINING_DATA_ARGUMENTS+=" --mean_count=${FLAGS_mean_count}"
-  elif [[ ! -z ${MEAN_COUNT} ]]; then
+  elif [[ ! -z ${MEAN_COUNT:-} ]]; then
     TRAINING_DATA_ARGUMENTS+=" --mean_count=${MEAN_COUNT}"
   fi
   # Default to Latin fonts if none have been set
@@ -1171,7 +1184,7 @@ set_lang_specific_parameters() {
       LANG_IS_RTL="1"
       NORM_MODE="2" ;;
     asm | ben | bih | hin | mar | nep | guj | kan | mal | tam | tel | pan | \
-    dzo | sin | san | bod | ori | khm | mya | tha | lao )
+    dzo | sin | san | bod | ori | khm | mya | tha | lao | jav  | jav_java)
       LANG_IS_RTL="0"
       NORM_MODE="2" ;;
     * )
