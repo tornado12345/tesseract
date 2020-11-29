@@ -21,18 +21,7 @@
 /**----------------------------------------------------------------------------
           Include Files and Type Defines
 ----------------------------------------------------------------------------**/
-#include "strngs.h"
-
-/*---------------------------------------------------------------------------
-          Macros
-----------------------------------------------------------------------------*/
-/* macros for controlling the display of recognized characters */
-#define EnableCharDisplay()   (DisplayCharacters = TRUE)
-#define DisableCharDisplay()    (DisplayCharacters = FALSE)
-
-/* macros for controlling the display of the entire match list */
-#define EnableMatchDisplay()    (DisplayMatchList = TRUE)
-#define DisableMatchDisplay()   (DisplayMatchList = FALSE)
+#include <tesseract/strngs.h>
 
 /**----------------------------------------------------------------------------
           Public Function Prototypes
@@ -43,7 +32,7 @@ namespace tesseract {
 // /path/to/dir/[lang].[fontname].exp[num]
 // The [lang], [fontname] and [num] fields should not have '.' characters.
 // If the global parameter classify_font_name is set, its value is used instead.
-void ExtractFontName(const STRING& filename, STRING* fontname);
+void ExtractFontName(const char* filename, STRING* fontname);
 
 }  // namespace tesseract.
 

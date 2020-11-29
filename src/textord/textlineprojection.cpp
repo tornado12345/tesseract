@@ -80,10 +80,11 @@ void TextlineProjection::ConstructProjection(TO_BLOCK* input_block,
   pix_ = final_pix;
 }
 
+#ifndef GRAPHICS_DISABLED
+
 // Display the blobs in the window colored according to textline quality.
 void TextlineProjection::PlotGradedBlobs(BLOBNBOX_LIST* blobs,
                                          ScrollView* win) {
-#ifndef GRAPHICS_DISABLED
   BLOBNBOX_IT it(blobs);
   for (it.mark_cycle_pt(); !it.cycled_list(); it.forward()) {
     BLOBNBOX* blob = it.data();
@@ -96,8 +97,9 @@ void TextlineProjection::PlotGradedBlobs(BLOBNBOX_LIST* blobs,
     win->Rectangle(box.left(), box.bottom(), box.right(), box.top());
   }
   win->Update();
-#endif  // GRAPHICS_DISABLED
 }
+
+#endif // !GRAPHICS_DISABLED
 
 // Moves blobs that look like they don't sit well on a textline from the
 // input blobs list to the output small_blobs list.
@@ -119,9 +121,10 @@ void TextlineProjection::MoveNonTextlineBlobs(
   }
 }
 
+#ifndef GRAPHICS_DISABLED
+
 // Create a window and display the projection in it.
 void TextlineProjection::DisplayProjection() const {
-#ifndef GRAPHICS_DISABLED
   int width = pixGetWidth(pix_);
   int height = pixGetHeight(pix_);
   Pix* pixc = pixCreate(width, height, 32);
@@ -142,13 +145,14 @@ void TextlineProjection::DisplayProjection() const {
       col_data[x] = result;
     }
   }
-  ScrollView* win = new ScrollView("Projection", 0, 0,
+  auto* win = new ScrollView("Projection", 0, 0,
                                    width, height, width, height);
   win->Image(pixc, 0, 0);
   win->Update();
   pixDestroy(&pixc);
-#endif  // GRAPHICS_DISABLED
 }
+
+#endif // !GRAPHICS_DISABLED
 
 // Compute the distance of the box from the partition using curved projection
 // space. As DistanceOfBoxFromBox, except that the direction is taken from
@@ -750,7 +754,7 @@ void TextlineProjection::TransformToPixCoords(const DENORM* denorm,
   pt->y = ImageYToProjectionY(pt->y);
 }
 
-#ifdef _MSC_VER
+#if defined(_MSC_VER) && !defined(__clang__)
 #pragma optimize("g", off)
 #endif  // _MSC_VER
 // Helper truncates the TPOINT to be within the pix_.
@@ -758,7 +762,7 @@ void TextlineProjection::TruncateToImageBounds(TPOINT* pt) const {
   pt->x = ClipToRange<int>(pt->x, 0, pixGetWidth(pix_) - 1);
   pt->y = ClipToRange<int>(pt->y, 0, pixGetHeight(pix_) - 1);
 }
-#ifdef _MSC_VER
+#if defined(_MSC_VER) && !defined(__clang__)
 #pragma optimize("", on)
 #endif  // _MSC_VER
 

@@ -2,7 +2,6 @@
 // File:        par_control.cpp
 // Description: Control code for parallel implementation.
 // Author:      Ray Smith
-// Created:     Mon Nov 04 13:23:15 PST 2013
 //
 // (C) Copyright 2013, Google Inc.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -25,15 +24,15 @@
 namespace tesseract {
 
 struct BlobData {
-  BlobData() : blob(nullptr), choices(nullptr) {}
+  BlobData() = default;
   BlobData(int index, Tesseract* tess, const WERD_RES& word)
     : blob(word.chopped_word->blobs[index]),
       tesseract(tess),
       choices(&(*word.ratings)(index, index)) {}
 
-  TBLOB* blob;
-  Tesseract* tesseract;
-  BLOB_CHOICE_LIST** choices;
+  TBLOB* blob = nullptr;
+  Tesseract* tesseract = nullptr;
+  BLOB_CHOICE_LIST** choices = nullptr;
 };
 
 void Tesseract::PrerecAllWordsPar(const GenericVector<WordData>& words) {
@@ -58,13 +57,15 @@ void Tesseract::PrerecAllWordsPar(const GenericVector<WordData>& words) {
 #endif  // _OPENMP
     for (int b = 0; b < blobs.size(); ++b) {
       *blobs[b].choices =
-          blobs[b].tesseract->classify_blob(blobs[b].blob, "par", White, nullptr);
+          blobs[b].tesseract->classify_blob(blobs[b].blob, "par",
+                                            ScrollView::WHITE, nullptr);
     }
   } else {
     // TODO(AMD) parallelize this.
     for (int b = 0; b < blobs.size(); ++b) {
       *blobs[b].choices =
-          blobs[b].tesseract->classify_blob(blobs[b].blob, "par", White, nullptr);
+          blobs[b].tesseract->classify_blob(blobs[b].blob, "par",
+                                            ScrollView::WHITE, nullptr);
     }
   }
 }

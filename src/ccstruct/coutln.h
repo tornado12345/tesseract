@@ -24,7 +24,7 @@
 #include "bits16.h"     // for BITS16
 #include "elst.h"       // for ELIST_ITERATOR, ELISTIZEH, ELIST_LINK
 #include "mod128.h"     // for DIR128, DIRBITS
-#include "platform.h"   // for DLLSYM
+#include <tesseract/platform.h>   // for DLLSYM
 #include "points.h"     // for ICOORD, FCOORD
 #include "rect.h"       // for TBOX
 #include "scrollview.h" // for ScrollView, ScrollView::Color
@@ -137,7 +137,7 @@ class DLLSYM C_OUTLINE:public ELIST_LINK {
     }
     // Return step at a given index as a DIR128.
     DIR128 step_dir(int index) const {
-      return DIR128((int16_t)(((steps[index/4] >> (index%4 * 2)) & STEP_MASK) <<
+      return DIR128(static_cast<int16_t>(((steps[index/4] >> (index%4 * 2)) & STEP_MASK) <<
                       (DIRBITS - 2)));
     }
     // Return the step vector for the given outline position.
@@ -254,12 +254,12 @@ class DLLSYM C_OUTLINE:public ELIST_LINK {
     // making use of sub-pixel accurate information if available.
     void plot_normed(const DENORM& denorm, ScrollView::Color colour,
                      ScrollView* window) const;
-    #endif  // GRAPHICS_DISABLED
+    #endif // !GRAPHICS_DISABLED
 
     C_OUTLINE& operator=(const C_OUTLINE& source);
 
     static C_OUTLINE* deep_copy(const C_OUTLINE* src) {
-      C_OUTLINE* outline = new C_OUTLINE;
+      auto* outline = new C_OUTLINE;
       *outline = *src;
       return outline;
     }

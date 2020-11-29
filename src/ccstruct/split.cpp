@@ -1,14 +1,7 @@
-/* -*-C-*-
- ********************************************************************************
+/******************************************************************************
  *
  * File:         split.cpp  (Formerly split.c)
- * Description:
  * Author:       Mark Seaman, OCR Technology
- * Created:      Fri Oct 16 14:37:00 1987
- * Modified:     Fri May 17 16:27:49 1991 (Mark Seaman) marks@hpgrlt
- * Language:     C
- * Package:      N/A
- * Status:       Reusable Software Component
  *
  * (c) Copyright 1987, Hewlett-Packard Company.
  ** Licensed under the Apache License, Version 2.0 (the "License");
@@ -45,13 +38,6 @@ const int kCenterGradeCap = 25;
 const double kBadPriority = 999.0;
 
 BOOL_VAR(wordrec_display_splits, 0, "Display splits");
-
-// Returns the bounding box of all the points in the split.
-TBOX SPLIT::bounding_box() const {
-  return TBOX(
-      std::min(point1->pos.x, point2->pos.x), std::min(point1->pos.y, point2->pos.y),
-      std::max(point1->pos.x, point2->pos.x), std::max(point1->pos.y, point2->pos.y));
-}
 
 // Hides the SPLIT so the outlines appear not to be cut by it.
 void SPLIT::Hide() const {
@@ -286,12 +272,12 @@ void SPLIT::UnsplitOutlineList(TBLOB* blob) const {
   /* Modify edge points */
   UnsplitOutlines();
 
-  TESSLINE* outline1 = new TESSLINE;
+  auto* outline1 = new TESSLINE;
   outline1->next = blob->outlines;
   blob->outlines = outline1;
   outline1->loop = point1;
 
-  TESSLINE* outline2 = new TESSLINE;
+  auto* outline2 = new TESSLINE;
   outline2->next = blob->outlines;
   blob->outlines = outline2;
   outline2->loop = point2;

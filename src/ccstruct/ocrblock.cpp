@@ -2,7 +2,6 @@
  * File:        ocrblock.cpp  (Formerly block.c)
  * Description: BLOCK member functions and iterator functions.
  * Author:      Ray Smith
- * Created:     Fri Mar 15 09:41:28 GMT 1991
  *
  * (C) Copyright 1991, Hewlett-Packard Ltd.
  ** Licensed under the Apache License, Version 2.0 (the "License");
@@ -23,8 +22,6 @@
 #include "stepblob.h"
 #include "tprintf.h"
 
-#define BLOCK_LABEL_HEIGHT  150  //char height of block id
-
 ELISTIZE (BLOCK)
 /**
  * BLOCK::BLOCK
@@ -32,7 +29,7 @@ ELISTIZE (BLOCK)
  * Constructor for a simple rectangular block.
  */
 BLOCK::BLOCK(const char *name,                ///< filename
-             BOOL8 prop,                      ///< proportional
+             bool prop,                       ///< proportional
              int16_t kern,                    ///< kerning
              int16_t space,                   ///< spacing
              int16_t xmin,                    ///< bottom left
@@ -47,7 +44,6 @@ BLOCK::BLOCK(const char *name,                ///< filename
   ICOORDELT_IT right_it = &pdblk.rightside;
 
   proportional = prop;
-  right_to_left_ = false;
   kerning = kern;
   spacing = space;
   font_class = -1;               //not assigned
@@ -202,7 +198,7 @@ void BLOCK::print(            //print list of sides
   tprintf ("Kerning= %d\n", kerning);
   tprintf ("Spacing= %d\n", spacing);
   tprintf ("Fixed_pitch=%d\n", pitch);
-  tprintf ("Filename= %s\n", filename.string ());
+  tprintf ("Filename= %s\n", filename.c_str ());
 
   if (dump) {
     tprintf ("Left side coords are:\n");

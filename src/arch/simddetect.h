@@ -17,12 +17,12 @@
 #ifndef TESSERACT_ARCH_SIMDDETECT_H_
 #define TESSERACT_ARCH_SIMDDETECT_H_
 
-#include "platform.h"
+#include <tesseract/platform.h>
 
 namespace tesseract {
 
 // Function pointer for best calculation of dot product.
-typedef double (*DotProductFunction)(const double* u, const double* v, int n);
+using DotProductFunction = double (*)(const double*, const double*, int);
 extern DotProductFunction DotProduct;
 
 // Architecture detector. Add code here to detect any other architectures for
@@ -31,9 +31,13 @@ extern DotProductFunction DotProduct;
 class SIMDDetect {
  public:
   // Returns true if AVX is available on this system.
-  static inline bool IsAVXAvailable() { return detector.avx_available_; }
+  static inline bool IsAVXAvailable() {
+    return detector.avx_available_;
+  }
   // Returns true if AVX2 (integer support) is available on this system.
-  static inline bool IsAVX2Available() { return detector.avx2_available_; }
+  static inline bool IsAVX2Available() {
+    return detector.avx2_available_;
+  }
   // Returns true if AVX512 Foundation (float) is available on this system.
   static inline bool IsAVX512FAvailable() {
     return detector.avx512F_available_;
@@ -42,11 +46,21 @@ class SIMDDetect {
   static inline bool IsAVX512BWAvailable() {
     return detector.avx512BW_available_;
   }
+  // Returns true if FMA is available on this system.
+  static inline bool IsFMAAvailable() {
+    return detector.fma_available_;
+  }
   // Returns true if SSE4.1 is available on this system.
-  static inline bool IsSSEAvailable() { return detector.sse_available_; }
+  static inline bool IsSSEAvailable() {
+    return detector.sse_available_;
+  }
+  // Returns true if NEON is available on this system.
+  static inline bool IsNEONAvailable() {
+    return detector.neon_available_;
+  }
 
   // Update settings after config variable was set.
-  static void Update();
+  static TESS_API void Update();
 
  private:
   // Constructor, must set all static member variables.
@@ -60,8 +74,12 @@ class SIMDDetect {
   static TESS_API bool avx2_available_;
   static TESS_API bool avx512F_available_;
   static TESS_API bool avx512BW_available_;
+  // If true, then FMA has been detected.
+  static TESS_API bool fma_available_;
   // If true, then SSe4.1 has been detected.
   static TESS_API bool sse_available_;
+  // If true, then NEON has been detected.
+  static TESS_API bool neon_available_;
 };
 
 }  // namespace tesseract

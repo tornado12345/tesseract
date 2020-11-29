@@ -24,7 +24,7 @@
 #include <cmath>               // for std::ceil, std::floor
 #include <cstdint>             // for INT16_MAX
 #include <cstdio>              // for FILE
-#include "platform.h"          // for DLLSYM
+#include <tesseract/platform.h>          // for DLLSYM
 #include "points.h"            // for ICOORD, FCOORD
 #include "scrollview.h"        // for ScrollView, ScrollView::Color
 #include "tprintf.h"           // for tprintf
@@ -41,8 +41,15 @@ class DLLSYM TBOX  {  // bounding box
         const ICOORD pt1,   // one corner
         const ICOORD pt2);  // the other corner
 
-    TBOX(                    // constructor
-        int16_t left, int16_t bottom, int16_t right, int16_t top);
+    //*********************************************************************
+    // TBOX::TBOX()  Constructor from 4 integer values.
+    //  Note: It is caller's responsibility to provide values
+    //        in the right order.
+    //*********************************************************************
+    TBOX(                    //constructor
+        int16_t left, int16_t bottom, int16_t right, int16_t top)
+        : bot_left(left, bottom), top_right(right, top) {
+    }
 
     TBOX(  // box around FCOORD
         const FCOORD pt);

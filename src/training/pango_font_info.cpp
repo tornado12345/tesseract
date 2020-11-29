@@ -39,7 +39,7 @@
 #include "fileio.h"
 #include "normstrngs.h"
 #include "tlog.h"
-#include "unichar.h"
+#include <tesseract/unichar.h>
 #include "util.h"
 #include "pango/pango.h"
 #include "pango/pangocairo.h"
@@ -402,12 +402,12 @@ bool PangoFontInfo::CanRenderString(const char* utf8_word, int len,
     PangoGlyph dotted_circle_glyph;
     PangoFont* font = run->item->analysis.font;
 
-#ifdef _WIN32  // Fixme! Leaks memory and breaks unittests.
+#ifdef _WIN32
     PangoGlyphString* glyphs = pango_glyph_string_new();
-    char s[] = "\xc2\xa7";
-    pango_shape(s, sizeof(s), &(run->item->analysis), glyphs);
+    const char s[] = "\xc2\xa7";
+    pango_shape(s, strlen(s), &(run->item->analysis), glyphs);
     dotted_circle_glyph = glyphs->glyphs[0].glyph;
-#else
+#else  // TODO: Do we need separate solution for non win build?
     dotted_circle_glyph = pango_fc_font_get_glyph(
         reinterpret_cast<PangoFcFont*>(font), kDottedCircleGlyph);
 #endif
@@ -463,6 +463,9 @@ bool PangoFontInfo::CanRenderString(const char* utf8_word, int len,
       if (bad_glyph)
         tlog(1, "Found illegal glyph!\n");
     }
+#ifdef _WIN32
+    pango_glyph_string_free(glyphs);
+#endif
   } while (!bad_glyph && pango_layout_iter_next_run(run_iter));
 
   pango_layout_iter_free(run_iter);
@@ -485,6 +488,10 @@ std::vector<std::string> FontUtils::available_fonts_;  // cache list
 // Until then, we are restricted to using a hack where we try to load the font
 // from the font_map, and then check what we loaded to see if it has the
 // description we expected. If it is not, then the font is deemed unavailable.
+//
+// TODO: This function reports also some not synthesized fonts as not available
+// e.g. 'Bitstream Charter Medium Italic', 'LMRoman17', so we need this hack
+// until  other solution is found.
 /* static */
 bool FontUtils::IsAvailableFont(const char* input_query_desc,
                                 std::string* best_match) {
@@ -505,6 +512,7 @@ bool FontUtils::IsAvailableFont(const char* input_query_desc,
   }
   if (selected_font == nullptr) {
     pango_font_description_free(desc);
+    tlog(4, "** Font '%s' failed to load from font map!\n", input_query_desc);
     return false;
   }
   PangoFontDescription* selected_desc = pango_font_describe(selected_font);
@@ -531,6 +539,9 @@ bool FontUtils::IsAvailableFont(const char* input_query_desc,
   pango_font_description_free(selected_desc);
   g_object_unref(selected_font);
   pango_font_description_free(desc);
+  if (!equal)
+    tlog(4, "** Font '%s' failed pango_font_description_equal!\n",
+         input_query_desc);
   return equal;
 }
 
@@ -581,7 +592,9 @@ const std::vector<std::string>& FontUtils::ListAvailableFonts() {
     for (int j = 0; j < n_faces; ++j) {
       PangoFontDescription* desc = pango_font_face_describe(faces[j]);
       char* desc_str = pango_font_description_to_string(desc);
-      if (IsAvailableFont(desc_str)) {
+      // "synthesized" font faces that are not truly loadable, so we skip it
+      if (!pango_font_face_is_synthesized(faces[j])
+            && IsAvailableFont(desc_str)) {
         available_fonts_.push_back(desc_str);
       }
       pango_font_description_free(desc);
@@ -608,49 +621,6 @@ static void CharCoverageMapToBitmap(PangoCoverage* coverage,
     }
   }
 }
-
-/* static */
-void FontUtils::GetAllRenderableCharacters(std::vector<bool>* unichar_bitmap) {
-  const std::vector<std::string>& all_fonts = ListAvailableFonts();
-  return GetAllRenderableCharacters(all_fonts, unichar_bitmap);
-}
-
-/* static */
-void FontUtils::GetAllRenderableCharacters(const std::string& font_name,
-                                           std::vector<bool>* unichar_bitmap) {
-  PangoFontInfo font_info(font_name);
-  PangoFont* font = font_info.ToPangoFont();
-  if (font != nullptr) {
-    // Font found.
-    PangoCoverage* coverage = pango_font_get_coverage(font, nullptr);
-    CharCoverageMapToBitmap(coverage, unichar_bitmap);
-    pango_coverage_unref(coverage);
-    g_object_unref(font);
-  }
-}
-
-/* static */
-void FontUtils::GetAllRenderableCharacters(const std::vector<std::string>& fonts,
-                                           std::vector<bool>* unichar_bitmap) {
-  // Form the union of coverage maps from the fonts
-  PangoCoverage* all_coverage = pango_coverage_new();
-  tlog(1, "Processing %u fonts\n", static_cast<unsigned>(fonts.size()));
-  for (unsigned i = 0; i < fonts.size(); ++i) {
-    PangoFontInfo font_info(fonts[i]);
-    PangoFont* font = font_info.ToPangoFont();
-    if (font != nullptr) {
-      // Font found.
-      PangoCoverage* coverage = pango_font_get_coverage(font, nullptr);
-      // Mark off characters that any font can render.
-      pango_coverage_max(all_coverage, coverage);
-      pango_coverage_unref(coverage);
-      g_object_unref(font);
-    }
-  }
-  CharCoverageMapToBitmap(all_coverage, unichar_bitmap);
-  pango_coverage_unref(all_coverage);
-}
-
 
 // Utilities written to be backward compatible with StringRender
 

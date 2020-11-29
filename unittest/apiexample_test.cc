@@ -22,14 +22,13 @@
 // expects clone of tessdata_fast repo in ../../tessdata_fast
 
 //#include "log.h"
-#include <limits.h>
 #include <time.h>
 #include <fstream>
 #include <iostream>
 #include <locale>
 #include <memory>               // std::unique_ptr
 #include <string>
-#include "baseapi.h"
+#include <tesseract/baseapi.h>
 #include "include_gunit.h"
 #include "leptonica/allheaders.h"
 

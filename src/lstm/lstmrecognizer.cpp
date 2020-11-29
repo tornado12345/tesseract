@@ -2,7 +2,6 @@
 // File:        lstmrecognizer.cpp
 // Description: Top-level line recognizer class for LSTM-based networks.
 // Author:      Ray Smith
-// Created:     Thu May 02 10:59:06 PST 2013
 //
 // (C) Copyright 2013, Google Inc.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,16 +17,15 @@
 
 // Include automatically generated configuration file if running autoconf.
 #ifdef HAVE_CONFIG_H
-#include "config_auto.h"
+#  include "config_auto.h"
 #endif
 
 #include "lstmrecognizer.h"
 
 #include "allheaders.h"
-#include "callcpp.h"
 #include "dict.h"
 #include "genericheap.h"
-#include "helpers.h"
+#include <tesseract/helpers.h>
 #include "imagedata.h"
 #include "input.h"
 #include "lstm.h"
@@ -39,12 +37,20 @@
 #include "statistc.h"
 #include "tprintf.h"
 
+#include <unordered_set>
+#include <vector>
+
 namespace tesseract {
 
 // Default ratio between dict and non-dict words.
 const double kDictRatio = 2.25;
 // Default certainty offset to give the dictionary a chance.
 const double kCertOffset = -0.085;
+
+LSTMRecognizer::LSTMRecognizer(const STRING language_data_path_prefix)
+    : LSTMRecognizer::LSTMRecognizer() {
+  ccutil_.language_data_path_prefix = language_data_path_prefix;
+}
 
 LSTMRecognizer::LSTMRecognizer()
     : network_(nullptr),
@@ -66,13 +72,14 @@ LSTMRecognizer::~LSTMRecognizer() {
 }
 
 // Loads a model from mgr, including the dictionary only if lang is not null.
-bool LSTMRecognizer::Load(const char* lang, TessdataManager* mgr) {
+bool LSTMRecognizer::Load(const ParamsVectors* params, const char* lang,
+                          TessdataManager* mgr) {
   TFile fp;
   if (!mgr->GetComponent(TESSDATA_LSTM, &fp)) return false;
   if (!DeSerialize(mgr, &fp)) return false;
   if (lang == nullptr) return true;
   // Allow it to run without a dictionary.
-  LoadDictionary(lang, mgr);
+  LoadDictionary(params, lang, mgr);
   return true;
 }
 
@@ -154,9 +161,15 @@ bool LSTMRecognizer::LoadRecoder(TFile* fp) {
 // on the unicharset matching. This enables training to deserialize a model
 // from checkpoint or restore without having to go back and reload the
 // dictionary.
-bool LSTMRecognizer::LoadDictionary(const char* lang, TessdataManager* mgr) {
+// Some parameters have to be passed in (from langdata/config/api via Tesseract)
+bool LSTMRecognizer::LoadDictionary(const ParamsVectors* params,
+                                    const char* lang, TessdataManager* mgr) {
   delete dict_;
   dict_ = new Dict(&ccutil_);
+  dict_->user_words_file.ResetFrom(params);
+  dict_->user_words_suffix.ResetFrom(params);
+  dict_->user_patterns_file.ResetFrom(params);
+  dict_->user_patterns_suffix.ResetFrom(params);
   dict_->SetupForLoad(Dict::GlobalDawgCache());
   dict_->LoadLSTM(lang, mgr);
   if (dict_->FinishLoad()) return true;  // Success.
@@ -173,7 +186,8 @@ void LSTMRecognizer::RecognizeLine(const ImageData& image_data, bool invert,
                                    bool debug, double worst_dict_cert,
                                    const TBOX& line_box,
                                    PointerVector<WERD_RES>* words,
-                                   int lstm_choice_mode) {
+                                   int lstm_choice_mode,
+                                   int lstm_choice_amount) {
   NetworkIO outputs;
   float scale_factor;
   NetworkIO inputs;
@@ -184,10 +198,38 @@ void LSTMRecognizer::RecognizeLine(const ImageData& image_data, bool invert,
     search_ =
         new RecodeBeamSearch(recoder_, null_char_, SimpleTextOutput(), dict_);
   }
+  search_->excludedUnichars.clear();
   search_->Decode(outputs, kDictRatio, kCertOffset, worst_dict_cert,
                   &GetUnicharset(), lstm_choice_mode);
   search_->ExtractBestPathAsWords(line_box, scale_factor, debug,
                                   &GetUnicharset(), words, lstm_choice_mode);
+  if (lstm_choice_mode){
+    search_->extractSymbolChoices(&GetUnicharset());
+    for (int i = 0; i < lstm_choice_amount; ++i) {
+      search_->DecodeSecondaryBeams(outputs, kDictRatio, kCertOffset,
+                                    worst_dict_cert, &GetUnicharset(),
+                                    lstm_choice_mode);
+      search_->extractSymbolChoices(&GetUnicharset());
+    }
+    search_->segmentTimestepsByCharacters();
+    int char_it = 0;
+    for (int i = 0; i < words->size(); ++i) {
+      for (int j = 0; j < words->get(i)->end; ++j) {
+        if (char_it < search_->ctc_choices.size())
+          words->get(i)->CTC_symbol_choices.push_back(
+              search_->ctc_choices[char_it]);
+        if (char_it < search_->segmentedTimesteps.size())
+          words->get(i)->segmented_timesteps.push_back(
+              search_->segmentedTimesteps[char_it]);
+        ++char_it;
+      }
+      words->get(i)->timesteps = search_->combineSegmentedTimesteps(
+          &words->get(i)->segmented_timesteps);
+    }
+    search_->segmentedTimesteps.clear();
+    search_->ctc_choices.clear();
+    search_->excludedUnichars.clear();
+  }
 }
 
 // Helper computes min and mean best results in the output.
@@ -221,8 +263,6 @@ bool LSTMRecognizer::RecognizeLine(const ImageData& image_data, bool invert,
                                    bool debug, bool re_invert, bool upside_down,
                                    float* scale_factor, NetworkIO* inputs,
                                    NetworkIO* outputs) {
-  // Maximum width of image to train on.
-  const int kMaxImageWidth = 2560;
   // This ensures consistent recognition results.
   SetRandomSeed();
   int min_width = network_->XScaleFactor();
@@ -232,6 +272,8 @@ bool LSTMRecognizer::RecognizeLine(const ImageData& image_data, bool invert,
     tprintf("Line cannot be recognized!!\n");
     return false;
   }
+  // Maximum width of image to train on.
+  const int kMaxImageWidth = 128 * pixGetHeight(pix);
   if (network_->IsTraining() && pixGetWidth(pix) > kMaxImageWidth) {
     tprintf("Image too large to learn!! Size = %dx%d\n", pixGetWidth(pix),
             pixGetHeight(pix));
@@ -248,7 +290,7 @@ bool LSTMRecognizer::RecognizeLine(const ImageData& image_data, bool invert,
   // Check for auto inversion.
   float pos_min, pos_mean, pos_sd;
   OutputStats(*outputs, &pos_min, &pos_mean, &pos_sd);
-  if (invert && pos_min < 0.5) {
+  if (invert && pos_mean < 0.5) {
     // Run again inverted and see if it is any better.
     NetworkIO inv_inputs, inv_outputs;
     inv_inputs.set_int_mode(IsIntMode());
@@ -256,10 +298,11 @@ bool LSTMRecognizer::RecognizeLine(const ImageData& image_data, bool invert,
     pixInvert(pix, pix);
     Input::PreparePixInput(network_->InputShape(), pix, &randomizer_,
                            &inv_inputs);
-    network_->Forward(debug, inv_inputs, nullptr, &scratch_space_, &inv_outputs);
+    network_->Forward(debug, inv_inputs, nullptr, &scratch_space_,
+                      &inv_outputs);
     float inv_min, inv_mean, inv_sd;
     OutputStats(inv_outputs, &inv_min, &inv_mean, &inv_sd);
-    if (inv_min > pos_min && inv_mean > pos_mean && inv_sd < pos_sd) {
+    if (inv_mean > pos_mean) {
       // Inverted did better. Use inverted data.
       if (debug) {
         tprintf("Inverting image: old min=%g, mean=%g, sd=%g, inv %g,%g,%g\n",
@@ -278,7 +321,9 @@ bool LSTMRecognizer::RecognizeLine(const ImageData& image_data, bool invert,
   if (debug) {
     GenericVector<int> labels, coords;
     LabelsFromOutputs(*outputs, &labels, &coords);
+#ifndef GRAPHICS_DISABLED
     DisplayForward(*inputs, labels, coords, "LSTMForward", &debug_win_);
+#endif
     DebugActivationPath(*outputs, labels, coords);
   }
   return true;
@@ -299,6 +344,8 @@ STRING LSTMRecognizer::DecodeLabels(const GenericVector<int>& labels) {
   return result;
 }
 
+#ifndef GRAPHICS_DISABLED
+
 // Displays the forward results in a window with the characters and
 // boundaries as determined by the labels and label_coords.
 void LSTMRecognizer::DisplayForward(const NetworkIO& inputs,
@@ -306,13 +353,11 @@ void LSTMRecognizer::DisplayForward(const NetworkIO& inputs,
                                     const GenericVector<int>& label_coords,
                                     const char* window_name,
                                     ScrollView** window) {
-#ifndef GRAPHICS_DISABLED  // do nothing if there's no graphics
   Pix* input_pix = inputs.ToPix();
   Network::ClearWindow(false, window_name, pixGetWidth(input_pix),
                        pixGetHeight(input_pix), window);
   int line_height = Network::DisplayImage(input_pix, *window);
   DisplayLSTMOutput(labels, label_coords, line_height, *window);
-#endif  // GRAPHICS_DISABLED
 }
 
 // Displays the labels and cuts at the corresponding xcoords.
@@ -320,7 +365,6 @@ void LSTMRecognizer::DisplayForward(const NetworkIO& inputs,
 void LSTMRecognizer::DisplayLSTMOutput(const GenericVector<int>& labels,
                                        const GenericVector<int>& xcoords,
                                        int height, ScrollView* window) {
-#ifndef GRAPHICS_DISABLED  // do nothing if there's no graphics
   int x_scale = network_->XScaleFactor();
   window->TextAttributes("Arial", height / 4, false, false, false);
   int end = 1;
@@ -339,8 +383,9 @@ void LSTMRecognizer::DisplayLSTMOutput(const GenericVector<int>& labels,
     window->Line(xpos, 0, xpos, height * 3 / 2);
   }
   window->Update();
-#endif  // GRAPHICS_DISABLED
 }
+
+#endif // !GRAPHICS_DISABLED
 
 // Prints debug output detailing the activation path that is implied by the
 // label_coords.
@@ -400,7 +445,7 @@ void LSTMRecognizer::DebugActivationRange(const NetworkIO& outputs,
 // Helper returns true if the null_char is the winner at t, and it beats the
 // null_threshold, or the next choice is space, in which case we will use the
 // null anyway.
-#if 0 // TODO: unused, remove if still unused after 2020.
+#if 0  // TODO: unused, remove if still unused after 2020.
 static bool NullIsBest(const NetworkIO& output, float null_thr,
                        int null_char, int t) {
   if (output.f(t)[null_char] >= null_thr) return true;

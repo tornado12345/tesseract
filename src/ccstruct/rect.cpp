@@ -17,7 +17,7 @@
  **********************************************************************/
 
 #include "rect.h"
-#include "strngs.h"     // for STRING
+#include <tesseract/strngs.h>     // for STRING
 
 // Include automatically generated configuration file if running autoconf.
 #ifdef HAVE_CONFIG_H
@@ -53,17 +53,6 @@ TBOX::TBOX(            // constructor
       top_right = pt1;
     }
   }
-}
-
-/**********************************************************************
- * TBOX::TBOX()  Constructor from 4 integer values.
- *  Note: It is caller's responsibility to provide values in the right
- *        order.
- **********************************************************************/
-
-TBOX::TBOX(                    //constructor
-    int16_t left, int16_t bottom, int16_t right, int16_t top)
-    : bot_left(left, bottom), top_right(right, top) {
 }
 
 // rotate_large constructs the containing bounding box of all 4

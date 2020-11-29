@@ -3,7 +3,6 @@
 // Description: Class to find image and drawing regions in an image
 //              and create a corresponding list of empty blobs.
 // Author:      Ray Smith
-// Created:     Fri Aug 01 10:50:01 PDT 2008
 //
 // (C) Copyright 2008, Google Inc.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,7 +21,8 @@
 #define TESSERACT_TEXTORD_IMAGEFIND_H_
 
 #include "debugpixa.h"
-#include "host.h"
+
+#include <cstdint>
 
 struct Boxa;
 struct Pix;
@@ -50,7 +50,7 @@ class ImageFind {
   static Pix* FindImages(Pix* pix, DebugPixa* pixa_debug);
 
   // Generates a Boxa, Pixa pair from the input binary (image mask) pix,
-  // analgous to pixConnComp, except that connected components which are nearly
+  // analogous to pixConnComp, except that connected components which are nearly
   // rectangular are replaced with solid rectangles.
   // The returned boxa, pixa may be nullptr, meaning no images found.
   // If not nullptr, they must be destroyed by the caller.

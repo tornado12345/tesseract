@@ -1,5 +1,4 @@
-/* -*-C-*-
- ******************************************************************************
+/******************************************************************************
  * File:         matrix.h
  * Description:  Generic 2-d array/matrix and banded triangular matrix class.
  * Author:       Ray Smith
@@ -8,8 +7,6 @@
  * Description:  Ratings matrix class (specialization of banded matrix).
  *               Segmentation search matrix of lists of BLOB_CHOICE.
  * Author:       Mark Seaman, OCR Technology
- * Created:      Wed May 16 13:22:06 1990
- * Modified:     Tue Mar 19 16:00:20 1991 (Mark Seaman) marks@hpgrlt
  *
  * (c) Copyright 1990, Hewlett-Packard Company.
  ** Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,7 +19,7 @@
  ** See the License for the specific language governing permissions and
  ** limitations under the License.
  *
- *********************************************************************************/
+ *****************************************************************************/
 
 #ifndef TESSERACT_CCSTRUCT_MATRIX_H_
 #define TESSERACT_CCSTRUCT_MATRIX_H_
@@ -33,10 +30,10 @@
 #include <cstdio>       // for FILE
 #include <cstring>      // for memcpy
 #include "errcode.h"    // for ASSERT_HOST
-#include "helpers.h"    // for ReverseN, ClipToRange
+#include <tesseract/helpers.h>    // for ReverseN, ClipToRange
 #include "kdpair.h"     // for KDPairInc
 #include "points.h"     // for ICOORD
-#include "serialis.h"   // for TFile
+#include <tesseract/serialis.h>   // for TFile
 
 class BLOB_CHOICE_LIST;
 class UNICHARSET;
@@ -540,7 +537,7 @@ class BandTriMatrix : public GENERIC_2D_ARRAY<T> {
   // Expression to select a specific location in the matrix. The matrix is
   // stored COLUMN-major, so the left-most index is the most significant.
   // This allows [][] access to use indices in the same order as (,).
-  virtual int index(int column, int row) const {
+  int index(int column, int row) const override {
     ASSERT_HOST(row >= column);
     ASSERT_HOST(row - column < this->dim2_);
     return column * this->dim2_ + row - column;
@@ -580,7 +577,7 @@ class MATRIX : public BandTriMatrix<BLOB_CHOICE_LIST *> {
   MATRIX(int dimension, int bandwidth)
     : BandTriMatrix<BLOB_CHOICE_LIST *>(dimension, bandwidth, NOT_CLASSIFIED) {}
 
-  virtual ~MATRIX();
+  ~MATRIX() override;
 
   // Returns true if there are any real classification results.
   bool Classified(int col, int row, int wildcard_id) const;
@@ -607,7 +604,7 @@ class MATRIX : public BandTriMatrix<BLOB_CHOICE_LIST *> {
 
 struct MATRIX_COORD {
   static void Delete(void *arg) {
-    MATRIX_COORD *c = static_cast<MATRIX_COORD *>(arg);
+    auto *c = static_cast<MATRIX_COORD *>(arg);
     delete c;
   }
   // Default constructor required by GenericHeap.

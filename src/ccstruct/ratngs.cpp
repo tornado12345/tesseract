@@ -2,7 +2,6 @@
  * File: ratngs.cpp  (Formerly ratings.c)
  * Description: Code to manipulate the BLOB_CHOICE and WERD_CHOICE classes.
  * Author: Ray Smith
- * Created: Thu Apr 23 13:23:29 BST 1992
  *
  * (C) Copyright 1992, Hewlett-Packard Ltd.
  ** Licensed under the Apache License, Version 2.0 (the "License");
@@ -27,8 +26,7 @@
 #include <algorithm>
 #include <string>
 #include "blobs.h"
-#include "callcpp.h"
-#include "genericvector.h"
+#include <tesseract/genericvector.h>
 #include "matrix.h"
 #include "normalis.h"  // kBlnBaselineOffset.
 #include "unicharset.h"
@@ -126,7 +124,9 @@ BLOB_CHOICE::BLOB_CHOICE(const BLOB_CHOICE &other) : ELIST_LINK(other) {
   max_xheight_ = other.max_xheight_;
   yshift_ = other.yshift();
   classifier_ = other.classifier_;
+#ifndef DISABLED_LEGACY_ENGINE
   fonts_ = other.fonts_;
+#endif  // ndef DISABLED_LEGACY_ENGINE
 }
 
 // Copy assignment operator.
@@ -143,7 +143,9 @@ BLOB_CHOICE& BLOB_CHOICE::operator=(const BLOB_CHOICE& other) {
   max_xheight_ = other.max_xheight_;
   yshift_ = other.yshift();
   classifier_ = other.classifier_;
+#ifndef DISABLED_LEGACY_ENGINE
   fonts_ = other.fonts_;
+#endif  // ndef DISABLED_LEGACY_ENGINE
   return *this;
 }
 
@@ -225,7 +227,7 @@ WERD_CHOICE::WERD_CHOICE(const char *src_string,
                                nullptr)) {
     lengths.push_back('\0');
     STRING src_lengths = &lengths[0];
-    this->init(cleaned.c_str(), src_lengths.string(), 0.0, 0.0, NO_PERM);
+    this->init(cleaned.c_str(), src_lengths.c_str(), 0.0, 0.0, NO_PERM);
   } else {  // There must have been an invalid unichar in the string.
     this->init(8);
     this->make_bad();
@@ -454,7 +456,7 @@ void WERD_CHOICE::string_and_lengths(STRING *word_str,
     const char *ch = unicharset_->id_to_unichar_ext(unichar_ids_[i]);
     *word_str += ch;
     if (word_lengths_str != nullptr) {
-      *word_lengths_str += strlen(ch);
+      *word_lengths_str += (char)strlen(ch);
     }
   }
 }
@@ -555,10 +557,7 @@ void WERD_CHOICE::SetScriptPositions(bool small_caps, TWERD* word, int debug) {
     return;
   }
 
-  int position_counts[4];
-  for (int i = 0; i < 4; i++) {
-    position_counts[i] = 0;
-  }
+  int position_counts[4] = { 0, 0, 0, 0 };
 
   int chunk_index = 0;
   for (int blob_index = 0; blob_index < length_; ++blob_index, ++chunk_index) {
@@ -586,7 +585,7 @@ void WERD_CHOICE::SetScriptPositions(bool small_caps, TWERD* word, int debug) {
     if (debug >= 2) {
       tprintf("Most characters of %s are subscript or superscript.\n"
               "That seems wrong, so I'll assume we got the baseline wrong\n",
-              unichar_string().string());
+              unichar_string().c_str());
     }
     for (int i = 0; i < length_; i++) {
       ScriptPos sp = script_pos_[i];
@@ -600,7 +599,7 @@ void WERD_CHOICE::SetScriptPositions(bool small_caps, TWERD* word, int debug) {
 
   if ((debug >= 1 && position_counts[tesseract::SP_NORMAL] < length_) ||
       debug >= 2) {
-    tprintf("SetScriptPosition on %s\n", unichar_string().string());
+    tprintf("SetScriptPosition on %s\n", unichar_string().c_str());
     int chunk_index = 0;
     for (int blob_index = 0; blob_index < length_; ++blob_index) {
       if (debug >= 2 || script_pos_[blob_index] != tesseract::SP_NORMAL) {
@@ -759,10 +758,11 @@ void WERD_CHOICE::print_state(const char *msg) const {
   tprintf("\n");
 }
 
+#ifndef GRAPHICS_DISABLED
+
 // Displays the segmentation state of *this (if not the same as the last
 // one displayed) and waits for a click in the window.
 void WERD_CHOICE::DisplaySegmentation(TWERD* word) {
-#ifndef GRAPHICS_DISABLED
   // Number of different colors to draw with.
   const int kNumColors = 6;
   static ScrollView *segm_window = nullptr;
@@ -789,7 +789,7 @@ void WERD_CHOICE::DisplaySegmentation(TWERD* word) {
   TBOX bbox;
   int blob_index = 0;
   for (int c = 0; c < length_; ++c) {
-    ScrollView::Color color =
+    auto color =
         static_cast<ScrollView::Color>(c % kNumColors + 3);
     for (int i = 0; i < state_[c]; ++i, ++blob_index) {
       TBLOB* blob = word->blobs[blob_index];
@@ -800,10 +800,10 @@ void WERD_CHOICE::DisplaySegmentation(TWERD* word) {
   segm_window->ZoomToRectangle(bbox.left(), bbox.top(),
                                bbox.right(), bbox.bottom());
   segm_window->Update();
-  window_wait(segm_window);
-#endif
+  segm_window->Wait();
 }
 
+#endif // !GRAPHICS_DISABLED
 
 bool EqualIgnoringCaseAndTerminalPunct(const WERD_CHOICE &word1,
                                        const WERD_CHOICE &word2) {

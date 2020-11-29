@@ -2,7 +2,6 @@
  * File:        ocrblock.h  (Formerly block.h)
  * Description: Page block class definition.
  * Author:      Ray Smith
- * Created:     Thu Mar 14 17:32:01 GMT 1991
  *
  * (C) Copyright 1991, Hewlett-Packard Ltd.
  ** Licensed under the Apache License, Version 2.0 (the "License");
@@ -36,11 +35,10 @@ class BLOCK:public ELIST_LINK
     : re_rotation_(1.0f, 0.0f),
       classify_rotation_(1.0f, 0.0f),
       skew_(1.0f, 0.0f) {
-    right_to_left_ = false;
     pdblk.hand_poly = nullptr;
   }
   BLOCK(const char *name,  ///< filename
-        BOOL8 prop,        ///< proportional
+        bool prop,         ///< proportional
         int16_t kern,      ///< kerning
         int16_t space,     ///< spacing
         int16_t xmin,      ///< bottom left
@@ -57,12 +55,12 @@ class BLOCK:public ELIST_LINK
    * @param space inter word size
    * @param ch_pitch pitch if fixed
    */
-  void set_stats(BOOL8 prop,
+  void set_stats(bool prop,
                  int16_t kern,
                  int16_t space,
                  int16_t ch_pitch) {
     proportional = prop;
-    kerning = (int8_t) kern;
+    kerning = static_cast<int8_t>(kern);
     spacing = space;
     pitch = ch_pitch;
   }
@@ -75,7 +73,7 @@ class BLOCK:public ELIST_LINK
     font_class = font;
   }
   /// return proportional
-  BOOL8 prop() const {
+  bool prop() const {
     return proportional;
   }
   bool right_to_left() const {
@@ -102,7 +100,7 @@ class BLOCK:public ELIST_LINK
   }
   /// return filename
   const char *name() const {
-    return filename.string ();
+    return filename.c_str ();
   }
   /// return xheight
   int32_t x_height() const {
@@ -192,14 +190,14 @@ class BLOCK:public ELIST_LINK
   PDBLK pdblk;                 ///< Page Description Block
 
  private:
-  BOOL8 proportional;          ///< proportional
-  bool right_to_left_;         ///< major script is right to left.
-  int8_t kerning;              ///< inter blob gap
-  int16_t spacing;             ///< inter word gap
-  int16_t pitch;               ///< pitch of non-props
-  int16_t font_class;          ///< correct font class
-  int32_t xheight;             ///< height of chars
-  float cell_over_xheight_;    ///< Ratio of cell height to xheight.
+  bool proportional = false;   ///< proportional
+  bool right_to_left_ = false; ///< major script is right to left.
+  int8_t kerning = 0;          ///< inter blob gap
+  int16_t spacing = 0;         ///< inter word gap
+  int16_t pitch = 0;           ///< pitch of non-props
+  int16_t font_class = 0;      ///< correct font class
+  int32_t xheight = 0;         ///< height of chars
+  float cell_over_xheight_ = 0.0f; ///< Ratio of cell height to xheight.
   STRING filename;             ///< name of block
   ROW_LIST rows;               ///< rows in block
   PARA_LIST paras_;            ///< paragraphs of block

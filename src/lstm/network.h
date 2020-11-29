@@ -21,12 +21,13 @@
 #include <cstdio>
 #include <cmath>
 
-#include "genericvector.h"
-#include "helpers.h"
+#include <tesseract/genericvector.h>
+#include <tesseract/helpers.h>
 #include "matrix.h"
 #include "networkio.h"
-#include "serialis.h"
+#include <tesseract/serialis.h>
 #include "static_shape.h"
+#include <tesseract/strngs.h>             // for STRING
 #include "tprintf.h"
 
 struct Pix;
@@ -104,7 +105,7 @@ enum TrainingState {
 class Network {
  public:
   Network();
-  Network(NetworkType type, const STRING& name, int ni, int no);
+  Network(NetworkType type, const std::string& name, int ni, int no);
   virtual ~Network() = default;
 
   // Accessors.
@@ -134,7 +135,7 @@ class Network {
     result.set_depth(no_);
     return result;
   }
-  const STRING& name() const {
+  const std::string& name() const {
     return name_;
   }
   virtual STRING spec() const {
@@ -296,7 +297,7 @@ class Network {
   int32_t ni_;                // Number of input values.
   int32_t no_;                // Number of output values.
   int32_t num_weights_;       // Number of weights in this and sub-network.
-  STRING name_;               // A unique name for this layer.
+  std::string name_;          // A unique name for this layer.
 
   // NOT-serialized debug data.
   ScrollView* forward_win_;   // Recognition debug display window.

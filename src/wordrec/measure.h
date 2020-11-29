@@ -1,14 +1,8 @@
-/* -*-C-*-
- ********************************************************************************
+/******************************************************************************
  *
- * File:        measure.h  (Formerly measure.h)
+ * File:         measure.h
  * Description:  Statistics for a group of single measurements
  * Author:       Mark Seaman, SW Productivity
- * Created:      Fri Oct 16 14:37:00 1987
- * Modified:     Mon Apr  8 09:42:28 1991 (Mark Seaman) marks@hpgrlt
- * Language:     C
- * Package:      N/A
- * Status:       Reusable Software Component
  *
  * (c) Copyright 1987, Hewlett-Packard Company.
  ** Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,8 +15,7 @@
  ** See the License for the specific language governing permissions and
  ** limitations under the License.
  *
- ********************************************************************************
- */
+ *****************************************************************************/
 
 #ifndef MEASURE_H
 #define MEASURE_H
@@ -121,7 +114,7 @@ typedef struct
  **********************************************************************/
 
 #define print_summary(string, measure)                             \
-  cprintf("\t%-20s \tn = %d, \tm = %4.2f, \ts = %4.2f\n ", string, \
+  tprintf("\t%-20s \tn = %d, \tm = %4.2f, \ts = %4.2f\n ", string, \
           number_of_samples(measure), MEAN(measure),               \
           standard_deviation(measure))
 #endif

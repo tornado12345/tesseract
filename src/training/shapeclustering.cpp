@@ -26,14 +26,14 @@
 #include "commontraining.h"
 #include "mastertrainer.h"
 #include "params.h"
-#include "strngs.h"
+#include <tesseract/strngs.h>
 
-INT_PARAM_FLAG(display_cloud_font, -1,
-               "Display cloud of this font, canonical_class1");
-INT_PARAM_FLAG(display_canonical_font, -1,
-               "Display canonical sample of this font, canonical_class2");
-STRING_PARAM_FLAG(canonical_class1, "", "Class to show ambigs for");
-STRING_PARAM_FLAG(canonical_class2, "", "Class to show ambigs for");
+static INT_PARAM_FLAG(display_cloud_font, -1,
+                      "Display cloud of this font, canonical_class1");
+static INT_PARAM_FLAG(display_canonical_font, -1,
+                      "Display canonical sample of this font, canonical_class2");
+static STRING_PARAM_FLAG(canonical_class1, "", "Class to show ambigs for");
+static STRING_PARAM_FLAG(canonical_class2, "", "Class to show ambigs for");
 
 // Loads training data, if requested displays debug information, otherwise
 // creates the master shape table by shape clustering and writes it to a file.
@@ -62,7 +62,7 @@ int main(int argc, char **argv) {
                             FLAGS_display_cloud_font,
                             FLAGS_canonical_class2.c_str(),
                             FLAGS_display_canonical_font);
-#endif  // GRAPHICS_DISABLED
+#endif // !GRAPHICS_DISABLED
     return 0;
   } else if (!FLAGS_canonical_class1.empty()) {
     trainer->DebugCanonical(FLAGS_canonical_class1.c_str(),

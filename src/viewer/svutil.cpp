@@ -2,7 +2,6 @@
 // File:        svutil.cpp
 // Description: ScrollView Utilities
 // Author:      Joern Wanke
-// Created:     Thu Nov 29 2007
 //
 // (C) Copyright 2007, Google Inc.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,22 +19,29 @@
 // SVUtil contains the SVSync and SVNetwork classes, which are used for
 // thread/process creation & synchronization and network connection.
 
+// Include automatically generated configuration file if running autoconf.
+#ifdef HAVE_CONFIG_H
+#  include "config_auto.h"
+#endif
+
+#include "svutil.h"
 #include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <iostream>
+#include <memory>
+#include <string>
+#include <thread>        // for std::this_thread
+#include <vector>
+
 #ifdef _WIN32
-#include <windows.h>
 #pragma comment(lib, "Ws2_32.lib")
-struct addrinfo {
-  struct sockaddr* ai_addr;
-  int ai_addrlen;
-  int ai_family;
-  int ai_socktype;
-  int ai_protocol;
-};
+#  include <winsock2.h>  // for fd_set, send, ..
+#  include <ws2tcpip.h>  // for addrinfo
 #else
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <netinet/in.h>
-#include <pthread.h>
 #include <semaphore.h>
 #include <csignal>
 #include <sys/select.h>
@@ -46,76 +52,13 @@ struct addrinfo {
 #include <unistd.h>
 #endif
 
-#include <cstdlib>
-#include <cstring>
-#include <iostream>
-#include <memory>
-#include <string>
-#include <vector>
-
-// Include automatically generated configuration file if running autoconf.
-#ifdef HAVE_CONFIG_H
-#include "config_auto.h"
-#endif
-
-#include "svutil.h"
-
-SVMutex::SVMutex() {
-#ifdef _WIN32
-  mutex_ = CreateMutex(0, FALSE, 0);
-#else
-  pthread_mutex_init(&mutex_, nullptr);
-#endif
-}
-
-void SVMutex::Lock() {
-#ifdef _WIN32
-  WaitForSingleObject(mutex_, INFINITE);
-#else
-  pthread_mutex_lock(&mutex_);
-#endif
-}
-
-void SVMutex::Unlock() {
-#ifdef _WIN32
-  ReleaseMutex(mutex_);
-#else
-  pthread_mutex_unlock(&mutex_);
-#endif
-}
-
-// Create new thread.
-void SVSync::StartThread(void* (*func)(void*), void* arg) {
-#ifdef _WIN32
-  LPTHREAD_START_ROUTINE f = (LPTHREAD_START_ROUTINE)func;
-  DWORD threadid;
-  HANDLE newthread = CreateThread(nullptr,        // default security attributes
-                                  0,           // use default stack size
-                                  f,           // thread function
-                                  arg,         // argument to thread function
-                                  0,           // use default creation flags
-                                  &threadid);  // returns the thread identifier
-#else
-  pthread_t helper;
-  pthread_attr_t attr;
-  pthread_attr_init(&attr);
-  pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-  pthread_create(&helper, &attr, func, arg);
-#endif
-}
+#if defined(_WIN32) && !defined(__GNUC__)
+#define strtok_r(str, delim, saveptr) strtok_s(str, delim, saveptr)
+#endif /* _WIN32 && !__GNUC__ */
 
 #ifndef GRAPHICS_DISABLED
 
 const int kMaxMsgSize = 4096;
-
-// Signals a thread to exit.
-void SVSync::ExitThread() {
-#ifdef _WIN32
-  // ExitThread(0);
-#else
-  pthread_exit(nullptr);
-#endif
-}
 
 // Starts a new process.
 void SVSync::StartProcess(const char* executable, const char* args) {
@@ -208,37 +151,32 @@ void SVSemaphore::Wait() {
 
 // Place a message in the message buffer (and flush it).
 void SVNetwork::Send(const char* msg) {
-  mutex_send_.Lock();
+  std::lock_guard<std::mutex> guard(mutex_send_);
   msg_buffer_out_.append(msg);
-  mutex_send_.Unlock();
 }
 
 // Send the whole buffer.
 void SVNetwork::Flush() {
-  mutex_send_.Lock();
+  std::lock_guard<std::mutex> guard(mutex_send_);
   while (!msg_buffer_out_.empty()) {
     int i = send(stream_, msg_buffer_out_.c_str(), msg_buffer_out_.length(), 0);
     msg_buffer_out_.erase(0, i);
   }
-  mutex_send_.Unlock();
 }
 
 // Receive a message from the server.
 // This will always return one line of char* (denoted by \n).
 char* SVNetwork::Receive() {
   char* result = nullptr;
-#if defined(_WIN32) || defined(__CYGWIN__)
-  if (has_content) { result = strtok (nullptr, "\n"); }
-#else
-  if (buffer_ptr_ != nullptr) { result = strtok_r(nullptr, "\n", &buffer_ptr_); }
-#endif
+  if (buffer_ptr_ != nullptr) {
+    result = strtok_r(nullptr, "\n", &buffer_ptr_);
+  }
 
   // This means there is something left in the buffer and we return it.
   if (result != nullptr) { return result;
   // Otherwise, we read from the stream_.
   } else {
     buffer_ptr_ = nullptr;
-    has_content = false;
 
     // The timeout length is not really important since we are looping anyway
     // until a new message is delivered.
@@ -262,13 +200,8 @@ char* SVNetwork::Receive() {
     // Server quit (0) or error (-1).
     if (i <= 0) { return nullptr; }
     msg_buffer_in_[i] = '\0';
-    has_content = true;
-#ifdef _WIN32
-    return strtok(msg_buffer_in_, "\n");
-#else
     // Setup a new string tokenizer.
     return strtok_r(msg_buffer_in_, "\n", &buffer_ptr_);
-#endif
   }
 }
 
@@ -303,7 +236,7 @@ static std::string ScrollViewCommand(std::string scrollview_path) {
   // this unnecessary.
   // Also the path has to be separated by ; on windows and : otherwise.
 #ifdef _WIN32
-  const char cmd_template[] = "-Djava.library.path=%s -jar %s/ScrollView.jar";
+  const char cmd_template[] = "-Djava.library.path=\"%s\" -jar \"%s/ScrollView.jar\"";
 
 #else
   const char cmd_template[] =
@@ -323,85 +256,31 @@ static std::string ScrollViewCommand(std::string scrollview_path) {
   return command;
 }
 
-
-// Platform-independent freeaddrinfo()
-static void FreeAddrInfo(struct addrinfo* addr_info) {
-  #if defined(__linux__)
-  freeaddrinfo(addr_info);
-  #else
-  delete addr_info->ai_addr;
-  delete addr_info;
-  #endif
-}
-
-
-// Non-linux version of getaddrinfo()
-#if !defined(__linux__)
-static int GetAddrInfoNonLinux(const char* hostname, int port,
-                               struct addrinfo** addr_info) {
-// Get the host data depending on the OS.
-  struct sockaddr_in* address;
-  *addr_info = new struct addrinfo;
-  memset(*addr_info, 0, sizeof(struct addrinfo));
-  address = new struct sockaddr_in;
-  memset(address, 0, sizeof(struct sockaddr_in));
-
-  (*addr_info)->ai_addr = (struct sockaddr*) address;
-  (*addr_info)->ai_addrlen = sizeof(struct sockaddr);
-  (*addr_info)->ai_family = AF_INET;
-  (*addr_info)->ai_socktype = SOCK_STREAM;
-
-  struct hostent *name;
-#ifdef _WIN32
-  WSADATA wsaData;
-  WSAStartup(MAKEWORD(1, 1), &wsaData);
-  name = gethostbyname(hostname);
-#else
-  name = gethostbyname(hostname);
-#endif
-
-  if (name == nullptr) {
-    FreeAddrInfo(*addr_info);
-    *addr_info = nullptr;
-    return -1;
-  }
-
-  // Fill in the appropriate variables to be able to connect to the server.
-  address->sin_family = name->h_addrtype;
-  memcpy(&address->sin_addr.s_addr, name->h_addr_list[0], name->h_length);
-  address->sin_port = htons(port);
-  return 0;
-}
-#endif
-
-
-// Platform independent version of getaddrinfo()
-//   Given a hostname:port, produce an addrinfo struct
-static int GetAddrInfo(const char* hostname, int port,
-                       struct addrinfo** address) {
-#if defined(__linux__)
-  char port_str[40];
-  snprintf(port_str, 40, "%d", port);
-  return getaddrinfo(hostname, port_str, nullptr, address);
-#else
-  return GetAddrInfoNonLinux(hostname, port, address);
-#endif
-}
-
-
 // Set up a connection to a ScrollView on hostname:port.
 SVNetwork::SVNetwork(const char* hostname, int port) {
   msg_buffer_in_ = new char[kMaxMsgSize + 1];
   msg_buffer_in_[0] = '\0';
 
-  has_content = false;
   buffer_ptr_ = nullptr;
 
   struct addrinfo *addr_info = nullptr;
+  char port_str[40];
+  snprintf(port_str, 40, "%d", port);
+#ifdef _WIN32
+  // Initialize Winsock
+  WSADATA wsaData;
+  int iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
+  if (iResult != 0) {
+    std::cerr << "WSAStartup failed: " << iResult << std::endl;
+  }
+#endif  // _WIN32
 
-  if (GetAddrInfo(hostname, port, &addr_info) != 0) {
+  if (getaddrinfo(hostname, port_str, nullptr, &addr_info) != 0) {
     std::cerr << "Error resolving name for ScrollView host "
               << std::string(hostname) << ":" << port << std::endl;
+#ifdef _WIN32
+    WSACleanup();
+#endif  // _WIN32
   }
 
   stream_ = socket(addr_info->ai_family, addr_info->ai_socktype,
@@ -442,15 +321,14 @@ SVNetwork::SVNetwork(const char* hostname, int port) {
         Close();
 
         std::cout << "ScrollView: Waiting for server...\n";
-#ifdef _WIN32
-        Sleep(1000);
-#else
-        sleep(1);
-#endif
+        std::this_thread::sleep_for(std::chrono::seconds(1));
       }
     }
   }
-  FreeAddrInfo(addr_info);
+#ifdef _WIN32
+  // WSACleanup();  // This cause ScrollView windows is not displayed
+#endif  // _WIN32
+  freeaddrinfo(addr_info);
 }
 
 SVNetwork::~SVNetwork() {
@@ -458,4 +336,4 @@ SVNetwork::~SVNetwork() {
   delete[] msg_buffer_in_;
 }
 
-#endif  // GRAPHICS_DISABLED
+#endif // !GRAPHICS_DISABLED

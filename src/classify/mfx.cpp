@@ -1,9 +1,9 @@
 /******************************************************************************
- **      Filename:       mfx.c
- **      Purpose:        Micro feature extraction routines
- **      Author:         Dan Johnson
+ ** Filename:       mfx.c
+ ** Purpose:        Micro feature extraction routines
+ ** Author:         Dan Johnson
  **
- **      (c) Copyright Hewlett-Packard Company, 1988.
+ ** (c) Copyright Hewlett-Packard Company, 1988.
  ** Licensed under the Apache License, Version 2.0 (the "License");
  ** you may not use this file except in compliance with the License.
  ** You may obtain a copy of the License at
@@ -17,15 +17,14 @@
 /*----------------------------------------------------------------------------
           Include Files and Type Defines
 ----------------------------------------------------------------------------*/
+
 #include "mfx.h"
 #include "mfdefs.h"
 #include "mfoutline.h"
-#include "clusttool.h"           //NEEDED
+#include "clusttool.h"          //NEEDED
 #include "intfx.h"
 #include "normalis.h"
 #include "params.h"
-
-#include <cmath>
 
 /*----------------------------------------------------------------------------
           Variables
@@ -36,12 +35,6 @@ double_VAR(classify_min_slope, 0.414213562,
            "Slope below which lines are called horizontal");
 double_VAR(classify_max_slope, 2.414213562,
            "Slope above which lines are called vertical");
-
-/*----------------------------------------------------------------------------
-          Macros
-----------------------------------------------------------------------------*/
-/* miscellaneous macros */
-#define NormalizeAngle(A) ((((A) < 0) ? ((A) + 2 * M_PI) : (A)) / (2 * M_PI))
 
 /*----------------------------------------------------------------------------
           Private Function Prototypes
@@ -76,13 +69,13 @@ MICROFEATURES BlobMicroFeatures(TBLOB* Blob, const DENORM& cn_denorm) {
 
     RemainingOutlines = Outlines;
     iterate(RemainingOutlines) {
-      Outline = (MFOUTLINE) first_node (RemainingOutlines);
+      Outline = static_cast<MFOUTLINE>first_node (RemainingOutlines);
       CharNormalizeOutline(Outline, cn_denorm);
     }
 
     RemainingOutlines = Outlines;
     iterate(RemainingOutlines) {
-      Outline = (MFOUTLINE) first_node(RemainingOutlines);
+      Outline = static_cast<MFOUTLINE>first_node(RemainingOutlines);
       FindDirectionChanges(Outline, classify_min_slope, classify_max_slope);
       MarkDirectionChanges(Outline);
       MicroFeatures = ConvertToMicroFeatures(Outline, MicroFeatures);

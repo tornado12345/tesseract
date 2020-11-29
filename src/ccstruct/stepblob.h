@@ -107,7 +107,7 @@ class C_BLOB:public ELIST_LINK
                      ScrollView::Color blob_colour,
                      ScrollView::Color child_colour,
                      ScrollView* window);
-    #endif  // GRAPHICS_DISABLED
+    #endif // !GRAPHICS_DISABLED
 
     C_BLOB& operator= (const C_BLOB & source) {
       if (!outlines.empty ())
@@ -117,7 +117,7 @@ class C_BLOB:public ELIST_LINK
     }
 
     static C_BLOB* deep_copy(const C_BLOB* src) {
-      C_BLOB* blob = new C_BLOB;
+      auto* blob = new C_BLOB;
       *blob = *src;
       return blob;
     }

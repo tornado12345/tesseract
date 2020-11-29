@@ -2,7 +2,6 @@
  **      Filename:       blobclass.c
  **      Purpose:        High level blob classification and training routines.
  **      Author:         Dan Johnson
- **      History:        7/21/89, DSJ, Created.
  **
  **      (c) Copyright Hewlett-Packard Company, 1988.
  ** Licensed under the Apache License, Version 2.0 (the "License");
@@ -24,34 +23,33 @@
 #include <cstdio>
 
 #include "classify.h"
-#ifndef DISABLED_LEGACY_ENGINE
 #include "featdefs.h"
 #include "mf.h"
 #include "normfeat.h"
-#endif  // ndef DISABLED_LEGACY_ENGINE
 
 static const char kUnknownFontName[] = "UnknownFont";
 
-STRING_VAR(classify_font_name, kUnknownFontName,
-           "Default font name to be used in training");
+static STRING_VAR(classify_font_name, kUnknownFontName,
+                  "Default font name to be used in training");
 
 namespace tesseract {
 /**----------------------------------------------------------------------------
             Public Code
 ----------------------------------------------------------------------------**/
+
 // Finds the name of the training font and returns it in fontname, by cutting
 // it out based on the expectation that the filename is of the form:
 // /path/to/dir/[lang].[fontname].exp[num]
 // The [lang], [fontname] and [num] fields should not have '.' characters.
 // If the global parameter classify_font_name is set, its value is used instead.
-void ExtractFontName(const STRING& filename, STRING* fontname) {
+void ExtractFontName(const char* filename, STRING* fontname) {
   *fontname = classify_font_name;
   if (*fontname == kUnknownFontName) {
     // filename is expected to be of the form [lang].[fontname].exp[num]
     // The [lang], [fontname] and [num] fields should not have '.' characters.
-    const char *basename = strrchr(filename.string(), '/');
-    const char *firstdot = strchr(basename ? basename : filename.string(), '.');
-    const char *lastdot  = strrchr(filename.string(), '.');
+    const char *basename = strrchr(filename, '/');
+    const char *firstdot = strchr(basename ? basename : filename, '.');
+    const char *lastdot  = strrchr(filename, '.');
     if (firstdot != lastdot && firstdot != nullptr && lastdot != nullptr) {
       ++firstdot;
       *fontname = firstdot;
@@ -62,8 +60,6 @@ void ExtractFontName(const STRING& filename, STRING* fontname) {
 
 
 /*---------------------------------------------------------------------------*/
-
-#ifndef DISABLED_LEGACY_ENGINE
 
 // Extracts features from the given blob and saves them in the tr_file_data_
 // member variable.
@@ -99,10 +95,11 @@ void Classify::LearnBlob(const STRING& fontname, TBLOB* blob,
 
 // Writes stored training data to a .tr file based on the given filename.
 // Returns false on error.
-bool Classify::WriteTRFile(const STRING& filename) {
+bool Classify::WriteTRFile(const char* filename) {
   bool result = false;
-  STRING tr_filename = filename + ".tr";
-  FILE* fp = fopen(tr_filename.string(), "wb");
+  std::string tr_filename = filename;
+  tr_filename += ".tr";
+  FILE* fp = fopen(tr_filename.c_str(), "wb");
   if (fp) {
     result =
       tesseract::Serialize(fp, &tr_file_data_[0], tr_file_data_.length());
@@ -111,7 +108,5 @@ bool Classify::WriteTRFile(const STRING& filename) {
   tr_file_data_.truncate_at(0);
   return result;
 }
-
-#endif  // ndef DISABLED_LEGACY_ENGINE
 
 }  // namespace tesseract.

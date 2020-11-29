@@ -23,7 +23,7 @@
 
 #include "bbgrid.h"
 #include "blobbox.h"
-#include "strngs.h"
+#include <tesseract/strngs.h>
 #include "tabvector.h"
 
 extern INT_VAR_H(textord_debug_bugs, 0,
@@ -81,7 +81,7 @@ struct AlignedBlobParams {
 class AlignedBlob : public BlobGrid {
  public:
   AlignedBlob(int gridsize, const ICOORD& bleft, const ICOORD& tright);
-  virtual ~AlignedBlob();
+  ~AlignedBlob() override;
 
   // Return true if the given coordinates are within the test rectangle
   // and the debug level is at least the given detail level.

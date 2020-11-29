@@ -20,14 +20,15 @@
 /*----------------------------------------------------------------------------
           Include Files and Type Defines
 ----------------------------------------------------------------------------*/
+
+#define _USE_MATH_DEFINES       // for M_PI
 #ifdef HAVE_CONFIG_H
 #include "config_auto.h"
 #endif
 
+#include <cmath>                // for M_PI
 #include <cstring>
 #include <cstdio>
-#define _USE_MATH_DEFINES
-#include <cmath>
 
 #include "classify.h"
 #include "cluster.h"
@@ -35,7 +36,7 @@
 #include "commontraining.h"
 #include "featdefs.h"
 #include "fontinfo.h"
-#include "genericvector.h"
+#include <tesseract/genericvector.h>
 #include "indexmapbidi.h"
 #include "intproto.h"
 #include "mastertrainer.h"
@@ -54,38 +55,30 @@ using tesseract::MasterTrainer;
 using tesseract::Shape;
 using tesseract::ShapeTable;
 
-#define PROGRAM_FEATURE_TYPE "mf"
-
-// Max length of a fake shape label.
-const int kMaxShapeLabelLength = 10;
-
-DECLARE_STRING_PARAM_FLAG(test_ch);
-
 /*----------------------------------------------------------------------------
             Public Code
 -----------------------------------------------------------------------------*/
 #ifndef GRAPHICS_DISABLED
 static void DisplayProtoList(const char* ch, LIST protolist) {
-  void* window = c_create_window("Char samples", 50, 200,
-                                 520, 520, -130.0, 130.0, -130.0, 130.0);
+  auto window = new ScrollView("Char samples", 50, 200, 520, 520, 260, 260, true);
   LIST proto = protolist;
   iterate(proto) {
     PROTOTYPE* prototype = reinterpret_cast<PROTOTYPE *>(first_node(proto));
     if (prototype->Significant)
-      c_line_color_index(window, Green);
+      window->Pen(ScrollView::GREEN);
     else if (prototype->NumSamples == 0)
-      c_line_color_index(window, Blue);
+      window->Pen(ScrollView::BLUE);
     else if (prototype->Merged)
-      c_line_color_index(window, Magenta);
+      window->Pen(ScrollView::MAGENTA);
     else
-      c_line_color_index(window, Red);
+      window->Pen(ScrollView::RED);
     float x = CenterX(prototype->Mean);
     float y = CenterY(prototype->Mean);
     double angle = OrientationOf(prototype->Mean) * 2 * M_PI;
     float dx = static_cast<float>(LengthOf(prototype->Mean) * cos(angle) / 2);
     float dy = static_cast<float>(LengthOf(prototype->Mean) * sin(angle) / 2);
-    c_move(window, (x - dx) * 256, (y - dy) * 256);
-    c_draw(window, (x + dx) * 256, (y + dy) * 256);
+    window->SetCursor((x - dx) * 256, (y - dy) * 256);
+    window->DrawTo((x + dx) * 256, (y + dy) * 256);
     if (prototype->Significant)
       tprintf("Green proto at (%g,%g)+(%g,%g) %d samples\n",
               x, y, dx, dy, prototype->NumSamples);
@@ -93,9 +86,9 @@ static void DisplayProtoList(const char* ch, LIST protolist) {
       tprintf("Red proto at (%g,%g)+(%g,%g) %d samples\n",
               x, y, dx, dy, prototype->NumSamples);
   }
-  c_make_current(window);
+  window->Update();
 }
-#endif  // GRAPHICS_DISABLED
+#endif // !GRAPHICS_DISABLED
 
 // Helper to run clustering on a single config.
 // Mostly copied from the old mftraining, but with renamed variables.
@@ -118,7 +111,7 @@ static LIST ClusterOneConfig(int shape_id, const char* class_label,
   #ifndef GRAPHICS_DISABLED
   if (strcmp(FLAGS_test_ch.c_str(), class_label) == 0)
     DisplayProtoList(FLAGS_test_ch.c_str(), proto_list);
-  #endif  // GRAPHICS_DISABLED
+  #endif // !GRAPHICS_DISABLED
   // Delete the protos that will not be used in the inttemp output file.
   proto_list = RemoveInsignificantProtos(proto_list, true,
                                          false,
@@ -245,8 +238,8 @@ int main (int argc, char **argv) {
     // output modules happy that we are doing things correctly.
     int num_shapes = config_map.CompactSize();
     for (int s = 0; s < num_shapes; ++s) {
-      char shape_label[kMaxShapeLabelLength + 1];
-      snprintf(shape_label, kMaxShapeLabelLength, "sh%04d", s);
+      char shape_label[14];
+      snprintf(shape_label, sizeof(shape_label), "sh%04d", s);
       shape_set.unichar_insert(shape_label);
     }
   }
@@ -275,8 +268,8 @@ int main (int argc, char **argv) {
   // Now write the inttemp and pffmtable.
   trainer->WriteInttempAndPFFMTable(trainer->unicharset(), *unicharset,
                                     *shape_table, float_classes,
-                                    inttemp_file.string(),
-                                    pffmtable_file.string());
+                                    inttemp_file.c_str(),
+                                    pffmtable_file.c_str());
   for (int c = 0; c < unicharset->size(); ++c) {
     FreeClassFields(&float_classes[c]);
   }

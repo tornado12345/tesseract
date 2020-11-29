@@ -1,14 +1,7 @@
-/* -*-C-*-
- ********************************************************************************
+/******************************************************************************
  *
  * File:         seam.cpp  (Formerly seam.c)
- * Description:
  * Author:       Mark Seaman, OCR Technology
- * Created:      Fri Oct 16 14:37:00 1987
- * Modified:     Fri May 17 16:30:13 1991 (Mark Seaman) marks@hpgrlt
- * Language:     C
- * Package:      N/A
- * Status:       Reusable Software Component
  *
  * (c) Copyright 1987, Hewlett-Packard Company.
  ** Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,7 +14,7 @@
  ** See the License for the specific language governing permissions and
  ** limitations under the License.
  *
- *********************************************************************************/
+ *****************************************************************************/
 /*----------------------------------------------------------------------
               I n c l u d e s
 ----------------------------------------------------------------------*/
@@ -40,30 +33,6 @@ TBOX SEAM::bounding_box() const {
     box += splits_[s].bounding_box();
   }
   return box;
-}
-
-// Returns true if other can be combined into *this.
-bool SEAM::CombineableWith(const SEAM& other, int max_x_dist,
-                           float max_total_priority) const {
-  int dist = location_.x - other.location_.x;
-  if (-max_x_dist < dist && dist < max_x_dist &&
-      num_splits_ + other.num_splits_ <= kMaxNumSplits &&
-      priority_ + other.priority_ < max_total_priority &&
-      !OverlappingSplits(other) && !SharesPosition(other)) {
-    return true;
-  } else {
-    return false;
-  }
-}
-
-// Combines other into *this. Only works if CombinableWith returned true.
-void SEAM::CombineWith(const SEAM& other) {
-  priority_ += other.priority_;
-  location_ += other.location_;
-  location_ /= 2;
-
-  for (uint8_t s = 0; s < other.num_splits_ && num_splits_ < kMaxNumSplits; ++s)
-    splits_[num_splits_++] = other.splits_[s];
 }
 
 // Returns true if the splits in *this SEAM appear OK in the sense that they
@@ -158,7 +127,7 @@ void SEAM::UndoSeam(TBLOB* blob, TBLOB* other_blob) const {
 
 // Prints everything in *this SEAM.
 void SEAM::Print(const char* label) const {
-  tprintf(label);
+  tprintf("%s", label);
   tprintf(" %6.2f @ (%d,%d), p=%d, n=%d ", priority_, location_.x, location_.y,
           widthp_, widthn_);
   for (int s = 0; s < num_splits_; ++s) {

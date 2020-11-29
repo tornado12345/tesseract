@@ -5,7 +5,6 @@
 // Description: Base interface class for classifiers that return a
 //              shape index.
 // Author:      Ray Smith
-// Created:     Thu Dec 15 15:24:27 PST 2011
 //
 // (C) Copyright 2011, Google Inc.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -25,7 +24,7 @@
 #endif
 
 #include "shapeclassifier.h"
-#include "genericvector.h"
+#include <tesseract/genericvector.h>
 #include "scrollview.h"
 #include "shapetable.h"
 #include "svmnode.h"
@@ -89,6 +88,8 @@ const UNICHARSET& ShapeClassifier::GetUnicharset() const {
   return GetShapeTable()->unicharset();
 }
 
+#ifndef GRAPHICS_DISABLED
+
 // Visual debugger classifies the given sample, displays the results and
 // solicits user input to display other classifications. Returns when
 // the user has finished with debugging the sample.
@@ -97,14 +98,13 @@ const UNICHARSET& ShapeClassifier::GetUnicharset() const {
 void ShapeClassifier::DebugDisplay(const TrainingSample& sample,
                                    Pix* page_pix,
                                    UNICHAR_ID unichar_id) {
-#ifndef GRAPHICS_DISABLED
   static ScrollView* terminator = nullptr;
   if (terminator == nullptr) {
     terminator = new ScrollView("XIT", 0, 0, 50, 50, 50, 50, true);
   }
   ScrollView* debug_win = CreateFeatureSpaceWindow("ClassifierDebug", 0, 0);
   // Provide a right-click menu to choose the class.
-  SVMenuNode* popup_menu = new SVMenuNode();
+  auto* popup_menu = new SVMenuNode();
   popup_menu->AddChild("Choose class to debug", 0, "x", "Class to debug");
   popup_menu->BuildMenu(debug_win, false);
   // Display the features in green.
@@ -153,8 +153,9 @@ void ShapeClassifier::DebugDisplay(const TrainingSample& sample,
              ev_type != SVET_CLICK && ev_type != SVET_DESTROY);
   } while (ev_type != SVET_CLICK && ev_type != SVET_DESTROY);
   delete debug_win;
-#endif  // GRAPHICS_DISABLED
 }
+
+#endif // !GRAPHICS_DISABLED
 
 // Displays classification as the given shape_id. Creates as many windows
 // as it feels fit, using index as a guide for placement. Adds any created
@@ -194,7 +195,7 @@ void ShapeClassifier::PrintResults(
       tprintf("[J]");
     if (results[i].broken)
       tprintf("[B]");
-    tprintf(" %s\n", GetShapeTable()->DebugStr(results[i].shape_id).string());
+    tprintf(" %s\n", GetShapeTable()->DebugStr(results[i].shape_id).c_str());
   }
 }
 

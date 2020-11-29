@@ -13,6 +13,7 @@
 //
 ///////////////////////////////////////////////////////////////////////
 
+#define _USE_MATH_DEFINES       // for M_PI
 // Include automatically generated configuration file if running autoconf.
 #ifdef HAVE_CONFIG_H
 #include "config_auto.h"
@@ -20,9 +21,9 @@
 
 #include "trainingsample.h"
 
-#include <cmath>
+#include <cmath>                // for M_PI
 #include "allheaders.h"
-#include "helpers.h"
+#include <tesseract/helpers.h>
 #include "intfeaturemap.h"
 #include "normfeat.h"
 #include "shapetable.h"
@@ -76,7 +77,7 @@ bool TrainingSample::Serialize(FILE* fp) const {
 // Creates from the given file. Returns nullptr in case of error.
 // If swap is true, assumes a big/little-endian swap is needed.
 TrainingSample* TrainingSample::DeSerializeCreate(bool swap, FILE* fp) {
-  TrainingSample* sample = new TrainingSample;
+  auto* sample = new TrainingSample;
   if (sample->DeSerialize(swap, fp)) return sample;
   delete sample;
   return nullptr;
@@ -126,7 +127,7 @@ TrainingSample* TrainingSample::CopyFromFeatures(
     const TBOX& bounding_box,
     const INT_FEATURE_STRUCT* features,
     int num_features) {
-  TrainingSample* sample = new TrainingSample;
+  auto* sample = new TrainingSample;
   sample->num_features_ = num_features;
   sample->features_ = new INT_FEATURE_STRUCT[num_features];
   sample->outline_length_ = fx_info.Length;
@@ -179,7 +180,7 @@ TrainingSample* TrainingSample::RandomizedCopy(int index) const {
 
 // Constructs and returns an exact copy.
 TrainingSample* TrainingSample::Copy() const {
-  TrainingSample* sample = new TrainingSample;
+  auto* sample = new TrainingSample;
   sample->class_id_ = class_id_;
   sample->font_id_ = font_id_;
   sample->weight_ = weight_;
@@ -311,15 +312,17 @@ Pix* TrainingSample::RenderToPix(const UNICHARSET* unicharset) const {
   return pix;
 }
 
+#ifndef GRAPHICS_DISABLED
+
 // Displays the features in the given window with the given color.
 void TrainingSample::DisplayFeatures(ScrollView::Color color,
                                      ScrollView* window) const {
-  #ifndef GRAPHICS_DISABLED
   for (uint32_t f = 0; f < num_features_; ++f) {
     RenderIntFeature(window, &features_[f], color);
   }
-  #endif  // GRAPHICS_DISABLED
 }
+
+#endif // !GRAPHICS_DISABLED
 
 // Returns a pix of the original sample image. The pix is padded all round
 // by padding wherever possible.

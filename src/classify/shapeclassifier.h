@@ -1,11 +1,8 @@
-// Copyright 2011 Google Inc. All Rights Reserved.
-// Author: rays@google.com (Ray Smith)
 ///////////////////////////////////////////////////////////////////////
 // File:        shapeclassifier.h
 // Description: Base interface class for classifiers that return a
 //              shape index.
 // Author:      Ray Smith
-// Created:     Tue Sep 13 11:26:32 PDT 2011
 //
 // (C) Copyright 2011, Google Inc.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -23,7 +20,7 @@
 #ifndef TESSERACT_CLASSIFY_SHAPECLASSIFIER_H_
 #define TESSERACT_CLASSIFY_SHAPECLASSIFIER_H_
 
-#include "unichar.h"
+#include <tesseract/unichar.h>
 
 template <typename T> class GenericVector;
 struct Pix;
@@ -93,8 +90,8 @@ class ShapeClassifier {
   // the user has finished with debugging the sample.
   // Probably doesn't need to be overridden if the subclass provides
   // DisplayClassifyAs.
-  virtual void DebugDisplay(const TrainingSample& sample, Pix* page_pix,
-                            UNICHAR_ID unichar_id);
+  void DebugDisplay(const TrainingSample& sample, Pix* page_pix,
+                    UNICHAR_ID unichar_id);
 
 
   // Displays classification as the given unichar_id. Creates as many windows

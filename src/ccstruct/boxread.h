@@ -2,7 +2,6 @@
  * File:        boxread.h
  * Description: Read data from a box file.
  * Author:      Ray Smith
- * Created:     Fri Aug 24 17:47:23 PDT 2007
  *
  * (C) Copyright 2007, Google Inc.
  ** Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,7 +20,7 @@
 #define TESSERACT_CCUTIL_BOXREAD_H_
 
 #include <cstdio>    // for FILE
-#include "strngs.h"  // for STRING
+#include <tesseract/strngs.h>  // for STRING
 
 class TBOX;
 
@@ -33,7 +32,7 @@ const int kBoxReadBufSize = 1024;
 
 // Open the boxfile based on the given image filename.
 // Returns nullptr if the box file cannot be opened.
-FILE* OpenBoxFile(const STRING& fname);
+FILE* OpenBoxFile(const char* filename);
 
 // Reads all boxes from the given filename.
 // Reads a specific target_page number if >= 0, or all pages otherwise.
@@ -42,7 +41,7 @@ FILE* OpenBoxFile(const STRING& fname);
 // a string is put in box_texts, with the corresponding page number in pages.
 // Each of the output vectors is optional (may be nullptr).
 // Returns false if no boxes are found.
-bool ReadAllBoxes(int target_page, bool skip_blanks, const STRING& filename,
+bool ReadAllBoxes(int target_page, bool skip_blanks, const char* filename,
                   GenericVector<TBOX>* boxes,
                   GenericVector<STRING>* texts,
                   GenericVector<STRING>* box_texts,
@@ -58,9 +57,6 @@ bool ReadMemBoxes(int target_page, bool skip_blanks, const char* box_data,
                   GenericVector<STRING>* texts,
                   GenericVector<STRING>* box_texts,
                   GenericVector<int>* pages);
-
-// Returns the box file name corresponding to the given image_filename.
-STRING BoxFileName(const STRING& image_filename);
 
 // ReadNextBox factors out the code to interpret a line of a box
 // file so that applybox and unicharset_extractor interpret the same way.

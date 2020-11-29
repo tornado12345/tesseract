@@ -18,25 +18,25 @@
 ///////////////////////////////////////////////////////////////////////
 
 #include "cjkpitch.h"
-#include "genericvector.h"
+#include <tesseract/genericvector.h>
 #include "topitch.h"
 #include "tovars.h"
 
 #include <algorithm>
 #include <vector>       // for std::vector
 
-BOOL_VAR(textord_space_size_is_variable, FALSE,
-         "If true, word delimiter spaces are assumed to have "
-         "variable width, even though characters have fixed pitch.");
+static BOOL_VAR(textord_space_size_is_variable, false,
+                "If true, word delimiter spaces are assumed to have "
+                "variable width, even though characters have fixed pitch.");
 
 namespace {
 
 // Allow +/-10% error for character pitch / body size.
-static const float kFPTolerance = 0.1;
+static const float kFPTolerance = 0.1f;
 
 // Minimum ratio of "good" character pitch for a row to be considered
 // to be fixed-pitch.
-static const float kFixedPitchThreshold = 0.35;
+static const float kFixedPitchThreshold = 0.35f;
 
 // rank statistics for a small collection of float values.
 class SimpleStats {
@@ -87,8 +87,8 @@ class SimpleStats {
 
  private:
   static int float_compare(const void* a, const void* b) {
-    const float* f_a = static_cast<const float*>(a);
-    const float* f_b = static_cast<const float*>(b);
+    const auto* f_a = static_cast<const float*>(a);
+    const auto* f_b = static_cast<const float*>(b);
     return (*f_a > *f_b) ? 1 : ((*f_a < *f_b) ? -1 : 0);
   }
 
@@ -155,8 +155,8 @@ class LocalCorrelation {
 
  private:
   static int float_pair_compare(const void* a, const void* b) {
-    const float_pair* f_a = static_cast<const float_pair*>(a);
-    const float_pair* f_b = static_cast<const float_pair*>(b);
+    const auto* f_a = static_cast<const float_pair*>(a);
+    const auto* f_b = static_cast<const float_pair*>(b);
     return (f_a->x > f_b->x) ? 1 : ((f_a->x < f_b->x) ? -1 : 0);
   }
 
@@ -264,9 +264,8 @@ class FPChar {
 // FPChar's.
 class FPRow {
  public:
-  FPRow() : pitch_(0.0f), estimated_pitch_(0.0f),
-            all_pitches_(), all_gaps_(), good_pitches_(), good_gaps_(),
-            heights_(), characters_(), real_row_(nullptr) {
+  FPRow() : all_pitches_(), all_gaps_(), good_pitches_(), good_gaps_(),
+            heights_(), characters_() {
   }
 
   ~FPRow() { }
@@ -384,7 +383,7 @@ class FPRow {
  private:
   static float x_overlap_fraction(const TBOX& box1, const TBOX& box2) {
     if (std::min(box1.width(), box2.width()) == 0) return 0.0;
-    return -box1.x_gap(box2) / (float)std::min(box1.width(), box2.width());
+    return -box1.x_gap(box2) / static_cast<float>(std::min(box1.width(), box2.width()));
   }
 
   static bool mostly_overlap(const TBOX& box1, const TBOX& box2) {
@@ -439,11 +438,11 @@ class FPRow {
     characters_.truncate(index);
   }
 
-  float pitch_;  // Character pitch.
-  float estimated_pitch_;  // equal to pitch_ if pitch_ is considered
+  float pitch_ = 0.0f; // Character pitch.
+  float estimated_pitch_ = 0.0f; // equal to pitch_ if pitch_ is considered
   // to be good enough.
-  float height_;  // Character height.
-  float gap_;  // Minimum gap between characters.
+  float height_ = 0.0f; // Character height.
+  float gap_ = 0.0f; // Minimum gap between characters.
 
   // Pitches between any two successive characters.
   SimpleStats all_pitches_;
@@ -459,7 +458,7 @@ class FPRow {
   SimpleStats heights_;
 
   GenericVector<FPChar> characters_;
-  TO_ROW *real_row_;  // Underlying TD_ROW for this row.
+  TO_ROW *real_row_ = nullptr; // Underlying TD_ROW for this row.
 };
 
 void FPRow::Init(TO_ROW *row) {
@@ -531,7 +530,7 @@ void FPRow::OutputEstimations() {
   // Don't consider a quarter space as a real space, because it's used
   // for line justification in traditional Japanese books.
   real_row_->max_nonspace = std::max(pitch_ * 0.25 + good_gaps_.minimum(),
-                                (double)good_gaps_.ile(0.875));
+                                static_cast<double>(good_gaps_.ile(0.875)));
 
   int space_threshold =
           std::min((real_row_->max_nonspace + real_row_->min_space) / 2,
@@ -551,7 +550,7 @@ void FPRow::OutputEstimations() {
 
   // Setup char_cells.
   ICOORDELT_IT cell_it = &real_row_->char_cells;
-  ICOORDELT *cell = new ICOORDELT(real_body(0).left(), 0);
+  auto *cell = new ICOORDELT(real_body(0).left(), 0);
   cell_it.add_after_then_move(cell);
 
   int right = real_body(0).right();
@@ -658,7 +657,7 @@ void FPRow::DebugOutputResult(int row_index) {
   if (num_chars() > 0) {
     tprintf("Row %d: pitch_decision=%d, fixed_pitch=%f, max_nonspace=%d, "
             "space_size=%f, space_threshold=%d, xheight=%f\n",
-            row_index, (int)(real_row_->pitch_decision),
+            row_index, static_cast<int>(real_row_->pitch_decision),
             real_row_->fixed_pitch, real_row_->max_nonspace,
             real_row_->space_size, real_row_->space_threshold,
             real_row_->xheight);
@@ -900,7 +899,7 @@ class FPAnalyzer {
   ~FPAnalyzer() { }
 
   void Pass1Analyze() {
-    for (size_t i = 0; i < rows_.size(); i++) rows_[i].Pass1Analyze();
+    for (auto & row : rows_) row.Pass1Analyze();
   }
 
   // Estimate character pitch for each row.  The argument pass1 can be
@@ -915,17 +914,17 @@ class FPAnalyzer {
   }
 
   void MergeFragments() {
-    for (size_t i = 0; i < rows_.size(); i++) rows_[i].MergeFragments();
+    for (auto & row : rows_) row.MergeFragments();
   }
 
   void FinalizeLargeChars() {
-    for (size_t i = 0; i < rows_.size(); i++) rows_[i].FinalizeLargeChars();
+    for (auto & row : rows_) row.FinalizeLargeChars();
   }
 
   bool Pass2Analyze() {
     bool changed = false;
-    for (size_t i = 0; i < rows_.size(); i++) {
-      if (rows_[i].Pass2Analyze()) {
+    for (auto & row : rows_) {
+      if (row.Pass2Analyze()) {
         changed = true;
       }
     }
@@ -933,7 +932,7 @@ class FPAnalyzer {
   }
 
   void OutputEstimations() {
-    for (size_t i = 0; i < rows_.size(); i++) rows_[i].OutputEstimations();
+    for (auto & row : rows_) row.OutputEstimations();
     // Don't we need page-level estimation of gaps/spaces?
   }
 
@@ -958,7 +957,7 @@ class FPAnalyzer {
   std::vector<FPRow> rows_;
   unsigned num_tall_rows_;
   unsigned num_bad_rows_;
-  // TODO: num_empty_rows_ is incremented, but never used overwise.
+  // TODO: num_empty_rows_ is incremented, but never used otherwise.
   unsigned num_empty_rows_;
   unsigned max_chars_per_row_;
 };
@@ -977,7 +976,7 @@ FPAnalyzer::FPAnalyzer(ICOORD page_tr, TO_BLOCK_LIST *port_blocks)
     TO_BLOCK *block = block_it.data();
     if (!block->get_rows()->empty()) {
       ASSERT_HOST(block->xheight > 0);
-      find_repeated_chars(block, FALSE);
+      find_repeated_chars(block, false);
     }
   }
 
@@ -1001,36 +1000,36 @@ void FPAnalyzer::EstimatePitch(bool pass1) {
   num_tall_rows_ = 0;
   num_bad_rows_ = 0;
   pitch_height_stats.Clear();
-  for (size_t i = 0; i < rows_.size(); i++) {
-    rows_[i].EstimatePitch(pass1);
-    if (rows_[i].good_pitches()) {
-      pitch_height_stats.Add(rows_[i].height() + rows_[i].gap(),
-                             rows_[i].pitch(), rows_[i].good_pitches());
-      if (rows_[i].height_pitch_ratio() > 1.1) num_tall_rows_++;
+  for (auto & row : rows_) {
+    row.EstimatePitch(pass1);
+    if (row.good_pitches()) {
+      pitch_height_stats.Add(row.height() + row.gap(),
+                             row.pitch(), row.good_pitches());
+      if (row.height_pitch_ratio() > 1.1) num_tall_rows_++;
     } else {
       num_bad_rows_++;
     }
   }
 
   pitch_height_stats.Finish();
-  for (size_t i = 0; i < rows_.size(); i++) {
-    if (rows_[i].good_pitches() >= 5) {
+  for (auto & row : rows_) {
+    if (row.good_pitches() >= 5) {
       // We have enough evidences. Just use the pitch estimation
       // from this row.
-      rows_[i].set_estimated_pitch(rows_[i].pitch());
-    } else if (rows_[i].num_chars() > 1) {
+      row.set_estimated_pitch(row.pitch());
+    } else if (row.num_chars() > 1) {
       float estimated_pitch =
-          pitch_height_stats.EstimateYFor(rows_[i].height() + rows_[i].gap(),
-                                          0.1);
+          pitch_height_stats.EstimateYFor(row.height() + row.gap(),
+                                          0.1f);
       // CJK characters are more likely to be fragmented than poorly
       // chopped. So trust the page-level estimation of character
       // pitch only if it's larger than row-level estimation or
       // row-level estimation is too large (2x bigger than row height).
-      if (estimated_pitch > rows_[i].pitch() ||
-          rows_[i].pitch() > rows_[i].height() * 2.0) {
-        rows_[i].set_estimated_pitch(estimated_pitch);
+      if (estimated_pitch > row.pitch() ||
+          row.pitch() > row.height() * 2.0) {
+        row.set_estimated_pitch(estimated_pitch);
       } else {
-        rows_[i].set_estimated_pitch(rows_[i].pitch());
+        row.set_estimated_pitch(row.pitch());
       }
     }
   }

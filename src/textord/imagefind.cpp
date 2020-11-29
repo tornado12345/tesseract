@@ -3,7 +3,6 @@
 // Description: Function to find image and drawing regions in an image
 //              and create a corresponding list of empty blobs.
 // Author:      Ray Smith
-// Created:     Thu Mar 20 09:49:01 PDT 2008
 //
 // (C) Copyright 2008, Google Inc.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -32,7 +31,7 @@
 
 #include <algorithm>
 
-INT_VAR(textord_tabfind_show_images, false, "Show image blobs");
+static INT_VAR(textord_tabfind_show_images, false, "Show image blobs");
 
 namespace tesseract {
 
@@ -146,7 +145,7 @@ Pix* ImageFind::FindImages(Pix* pix, DebugPixa* pixa_debug) {
 }
 
 // Generates a Boxa, Pixa pair from the input binary (image mask) pix,
-// analgous to pixConnComp, except that connected components which are nearly
+// analogous to pixConnComp, except that connected components which are nearly
 // rectangular are replaced with solid rectangles.
 // The returned boxa, pixa may be nullptr, meaning no images found.
 // If not nullptr, they must be destroyed by the caller.
@@ -981,7 +980,7 @@ static void MaximalImageBoundingBox(ColPartitionGrid* part_grid, TBOX* im_box) {
     BlobNeighbourDir best_dir = BND_LEFT;
     TBOX expanded_boxes[BND_COUNT];
     for (int dir = 0; dir < BND_COUNT; ++dir) {
-      BlobNeighbourDir bnd = static_cast<BlobNeighbourDir>(dir);
+      auto bnd = static_cast<BlobNeighbourDir>(dir);
       if (!dunnit[bnd]) {
         TBOX expanded_box;
         int area_delta = ExpandImageDir(bnd, text_box, limit_box, part_grid,
@@ -1355,10 +1354,12 @@ void ImageFind::FindImagePartitions(Pix* image_pix, const FCOORD& rotation,
   boxaDestroy(&boxa);
   pixaDestroy(&pixa);
   DeleteSmallImages(part_grid);
+#ifndef GRAPHICS_DISABLED
   if (textord_tabfind_show_images) {
     ScrollView* images_win_ = part_grid->MakeWindow(1000, 400, "With Images");
     part_grid->DisplayBoxes(images_win_);
   }
+#endif
 }
 
 

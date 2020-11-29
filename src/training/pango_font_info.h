@@ -26,14 +26,10 @@
 #include <vector>
 
 #include "commandlineflags.h"
-#include "host.h"
 #include "pango/pango-font.h"
 #include "pango/pango.h"
 #include "pango/pangocairo.h"
 #include "util.h"
-
-DECLARE_STRING_PARAM_FLAG(fonts_dir);
-DECLARE_STRING_PARAM_FLAG(fontconfig_tmpdir);
 
 using char32 = signed int;
 
@@ -173,15 +169,6 @@ class FontUtils {
   static bool SelectFont(const char* utf8_word, const int utf8_len,
                          const std::vector<std::string>& all_fonts,
                          std::string* font_name, std::vector<std::string>* graphemes);
-
-  // Returns a bitmask where the value of true at index 'n' implies that unicode
-  // value 'n' is renderable by at least one available font.
-  static void GetAllRenderableCharacters(std::vector<bool>* unichar_bitmap);
-  // Variant of the above function that inspects only the provided font names.
-  static void GetAllRenderableCharacters(const std::vector<std::string>& font_names,
-                                         std::vector<bool>* unichar_bitmap);
-  static void GetAllRenderableCharacters(const std::string& font_name,
-                                         std::vector<bool>* unichar_bitmap);
 
   // NOTE: The following utilities were written to be backward compatible with
   // StringRender.

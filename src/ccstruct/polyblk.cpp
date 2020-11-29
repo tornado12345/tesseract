@@ -16,11 +16,12 @@
  **********************************************************************/
 
 #include "polyblk.h"
+#include "elst.h"
 #include <cctype>
+#include <cinttypes>  // PRId32
 #include <cmath>
 #include <cstdio>
-#include <memory>  // std::unique_ptr
-#include "elst.h"
+#include <memory>     // std::unique_ptr
 
 // Include automatically generated configuration file if running autoconf.
 #ifdef HAVE_CONFIG_H
@@ -408,9 +409,9 @@ ScrollView::Color POLY_BLOCK::ColorForPolyBlockType(PolyBlockType type) {
     ScrollView::DARK_GREEN,   // Vertical Line.
     ScrollView::GREY          // Lies outside of any column.
   };
-  if (type >= 0 && type < PT_COUNT) {
+  if (type < PT_COUNT) {
     return kPBColors[type];
   }
   return ScrollView::WHITE;
 }
-#endif  // GRAPHICS_DISABLED
+#endif // !GRAPHICS_DISABLED

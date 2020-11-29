@@ -1,14 +1,7 @@
-/* -*-C-*-
- ********************************************************************************
+/******************************************************************************
  *
- * File:        chop.h  (Formerly chop.h)
- * Description:
- * Author:       Mark Seaman, SW Productivity
- * Created:      Fri Oct 16 14:37:00 1987
- * Modified:     Wed Jul 10 14:47:37 1991 (Mark Seaman) marks@hpgrlt
- * Language:     C
- * Package:      N/A
- * Status:       Reusable Software Component
+ * File:        chop.h
+ * Author:      Mark Seaman, SW Productivity
  *
  * (c) Copyright 1987, Hewlett-Packard Company.
  ** Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,7 +14,7 @@
  ** See the License for the specific language governing permissions and
  ** limitations under the License.
  *
- *******************************************************************************/
+ *****************************************************************************/
 
 #ifndef CHOP_H
 #define CHOP_H

@@ -1,5 +1,4 @@
-/* -*-C-*-
- ********************************************************************************
+/******************************************************************************
  *
  * File:         context.cpp  (Formerly context.c)
  * Description:  Context checking functions
@@ -16,7 +15,7 @@
  ** See the License for the specific language governing permissions and
  ** limitations under the License.
  *
- *********************************************************************************/
+ *****************************************************************************/
 
 #include "dict.h"
 #include "unicharset.h"
@@ -43,16 +42,17 @@ const int case_state_table[6][4] = {
      5, -1, 2, -1},
 };
 
-int Dict::case_ok(const WERD_CHOICE &word, const UNICHARSET &unicharset) const {
+int Dict::case_ok(const WERD_CHOICE &word) const {
   int state = 0;
   int x;
+  const UNICHARSET* unicharset = word.unicharset();
   for (x = 0; x < word.length(); ++x) {
     UNICHAR_ID ch_id = word.unichar_id(x);
-    if (unicharset.get_isupper(ch_id))
+    if (unicharset->get_isupper(ch_id))
       state = case_state_table[state][1];
-    else if (unicharset.get_islower(ch_id))
+    else if (unicharset->get_islower(ch_id))
       state = case_state_table[state][2];
-    else if (unicharset.get_isdigit(ch_id))
+    else if (unicharset->get_isdigit(ch_id))
       state = case_state_table[state][3];
     else
       state = case_state_table[state][0];

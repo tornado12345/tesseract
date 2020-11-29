@@ -3,7 +3,6 @@
 // Description: Class to hold partitions of the page that correspond
 //              roughly to text lines.
 // Author:      Ray Smith
-// Created:     Thu Aug 14 10:54:01 PDT 2008
 //
 // (C) Copyright 2008, Google Inc.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -29,6 +28,7 @@
 #include "dppoint.h"
 #include "imagefind.h"
 #include "workingpartset.h"
+#include "host.h"              // for NearlyEqual
 
 #include <algorithm>
 
@@ -38,6 +38,18 @@ ELIST2IZE(ColPartition)
 CLISTIZE(ColPartition)
 
 //////////////// ColPartition Implementation ////////////////
+
+// enum to refer to the entries in a neighbourhood of lines.
+// Used by SmoothSpacings to test for blips with OKSpacingBlip.
+enum SpacingNeighbourhood {
+  PN_ABOVE2,
+  PN_ABOVE1,
+  PN_UPPER,
+  PN_LOWER,
+  PN_BELOW1,
+  PN_BELOW2,
+  PN_COUNT
+};
 
 // Maximum change in spacing (in inches) to ignore.
 const double kMaxSpacingDrift = 1.0 / 72;  // 1/72 is one point.
@@ -80,20 +92,10 @@ const int kMaxColorDistance = 900;
 // Vertical is the direction of logical vertical on the possibly skewed image.
 ColPartition::ColPartition(BlobRegionType blob_type, const ICOORD& vertical)
   : left_margin_(-INT32_MAX), right_margin_(INT32_MAX),
-    median_bottom_(INT32_MAX), median_top_(-INT32_MAX), median_height_(0),
-    median_left_(INT32_MAX), median_right_(-INT32_MAX), median_width_(0),
-    blob_type_(blob_type), flow_(BTFT_NONE), good_blob_score_(0),
-    good_width_(false), good_column_(false),
-    left_key_tab_(false), right_key_tab_(false),
-    left_key_(0), right_key_(0), type_(PT_UNKNOWN), vertical_(vertical),
-    working_set_(nullptr), last_add_was_vertical_(false), block_owned_(false),
-    desperately_merged_(false),
-    first_column_(-1), last_column_(-1), column_set_(nullptr),
-    side_step_(0), top_spacing_(0), bottom_spacing_(0),
-    type_before_table_(PT_UNKNOWN), inside_table_column_(false),
-    nearest_neighbor_above_(nullptr), nearest_neighbor_below_(nullptr),
-    space_above_(0), space_below_(0), space_to_left_(0), space_to_right_(0),
-    owns_blobs_(true) {
+    median_bottom_(INT32_MAX), median_top_(-INT32_MAX),
+    median_left_(INT32_MAX), median_right_(-INT32_MAX),
+    blob_type_(blob_type),
+    vertical_(vertical) {
   memset(special_blobs_densities_, 0, sizeof(special_blobs_densities_));
 }
 
@@ -159,7 +161,7 @@ ColPartition* ColPartition::MakeLinePartition(BlobRegionType blob_type,
                                               const ICOORD& vertical,
                                               int left, int bottom,
                                               int right, int top) {
-  ColPartition* part = new ColPartition(blob_type, vertical);
+  auto* part = new ColPartition(blob_type, vertical);
   part->bounding_box_ = TBOX(left, bottom, right, top);
   part->median_bottom_ = bottom;
   part->median_top_ = top;
@@ -602,8 +604,8 @@ void ColPartition::ComputeSpecialBlobsDensity() {
     special_blobs_densities_[type]++;
   }
 
-  for (int type = 0; type < BSTT_COUNT; ++type) {
-    special_blobs_densities_[type] /= boxes_.length();
+  for (float& special_blobs_density : special_blobs_densities_) {
+    special_blobs_density /= boxes_.length();
   }
 }
 
@@ -645,7 +647,7 @@ ColPartition* ColPartition::SingletonPartner(bool upper) {
 }
 
 // Merge with the other partition and delete it.
-void ColPartition::Absorb(ColPartition* other, WidthCallback* cb) {
+void ColPartition::Absorb(ColPartition* other, WidthCallback cb) {
   // The result has to either own all of the blobs or none of them.
   // Verify the flag is consistent.
   ASSERT_HOST(owns_blobs() == other->owns_blobs());
@@ -939,11 +941,13 @@ void ColPartition::ComputeLimits() {
   }
 
   if (right_margin_ < bounding_box_.right() && textord_debug_bugs) {
-    tprintf("Made partition with bad right coords");
+    tprintf("Made partition with bad right coords, %d < %d\n",
+            right_margin_, bounding_box_.right());
     Print();
   }
   if (left_margin_ > bounding_box_.left() && textord_debug_bugs) {
-    tprintf("Made partition with bad left coords");
+    tprintf("Made partition with bad left coords, %d > %d\n",
+            left_margin_, bounding_box_.left());
     Print();
   }
   // Fix partner lists. The bounding box has changed and partners are stored
@@ -1077,10 +1081,10 @@ void ColPartition::ColumnRange(int resolution, ColPartitionSet* columns,
 }
 
 // Sets the internal flags good_width_ and good_column_.
-void ColPartition::SetColumnGoodness(WidthCallback* cb) {
+void ColPartition::SetColumnGoodness(WidthCallback cb) {
   int y = MidY();
   int width = RightAtY(y) - LeftAtY(y);
-  good_width_ = cb->Run(width);
+  good_width_ = cb(width);
   good_column_ = blob_type_ == BRT_TEXT && left_key_tab_ && right_key_tab_;
 }
 
@@ -1134,7 +1138,7 @@ bool ColPartition::MarkAsLeaderIfMonospaced() {
     // Pad the buffer with min_step/2 on each end.
     int part_left = bounding_box_.left() - min_step / 2;
     part_width += min_step;
-    DPPoint* projection = new DPPoint[part_width];
+    auto* projection = new DPPoint[part_width];
     for (it.mark_cycle_pt(); !it.cycled_list(); it.forward()) {
       BLOBNBOX* blob = it.data();
       int left = blob->bounding_box().left();
@@ -1567,7 +1571,7 @@ static TO_BLOCK* MoveBlobsToBlock(bool vertical_text, int line_spacing,
   STATS sizes(0, std::max(block_box.width(), block_box.height()));
   bool text_type = block->pdblk.poly_block()->IsText();
   ColPartition_IT it(block_parts);
-  TO_BLOCK* to_block = new TO_BLOCK(block);
+  auto* to_block = new TO_BLOCK(block);
   BLOBNBOX_IT blob_it(&to_block->blobs);
   ColPartition_IT used_it(used_parts);
   for (it.move_to_first(); !it.empty(); it.forward()) {
@@ -1680,7 +1684,7 @@ TO_BLOCK* ColPartition::MakeBlock(const ICOORD& bleft, const ICOORD& tright,
   if (textord_debug_tabfind)
     tprintf("Making block at (%d,%d)->(%d,%d)\n",
             min_x, min_y, max_x, max_y);
-  BLOCK* block = new BLOCK("", true, 0, 0, min_x, min_y, max_x, max_y);
+  auto* block = new BLOCK("", true, 0, 0, min_x, min_y, max_x, max_y);
   block->pdblk.set_poly_block(new POLY_BLOCK(&vertices, type));
   return MoveBlobsToBlock(false, line_spacing, block, block_parts, used_parts);
 }
@@ -1705,7 +1709,7 @@ TO_BLOCK* ColPartition::MakeVerticalTextBlock(const ICOORD& bleft,
     tprintf("Making block at:");
     block_box.print();
   }
-  BLOCK* block = new BLOCK("", true, 0, 0, block_box.left(), block_box.bottom(),
+  auto* block = new BLOCK("", true, 0, 0, block_box.left(), block_box.bottom(),
                            block_box.right(), block_box.top());
   block->pdblk.set_poly_block(new POLY_BLOCK(block_box, type));
   return MoveBlobsToBlock(true, line_spacing, block, block_parts, used_parts);
@@ -1739,7 +1743,7 @@ TO_ROW* ColPartition::MakeToRow() {
 // Returns a copy of everything except the list of boxes. The resulting
 // ColPartition is only suitable for keeping in a column candidate list.
 ColPartition* ColPartition::ShallowCopy() const {
-  ColPartition* part = new ColPartition(blob_type_, vertical_);
+  auto* part = new ColPartition(blob_type_, vertical_);
   part->left_margin_ = left_margin_;
   part->right_margin_ = right_margin_;
   part->bounding_box_ = bounding_box_;
@@ -1783,7 +1787,7 @@ ScrollView::Color  ColPartition::BoxColor() const {
     return BLOBNBOX::TextlineColor(blob_type_, flow_);
   return POLY_BLOCK::ColorForPolyBlockType(type_);
 }
-#endif  // GRAPHICS_DISABLED
+#endif // !GRAPHICS_DISABLED
 
 // Keep in sync with BlobRegionType.
 static char kBlobTypes[BRT_COUNT + 1] = "NHSRIUVT";
@@ -2247,10 +2251,16 @@ void ColPartition::SmoothSpacings(int resolution, int page_height,
     if (neighbourhood[PN_LOWER] == nullptr ||
         (!neighbourhood[PN_UPPER]->SpacingsEqual(*neighbourhood[PN_LOWER],
                                                  resolution) &&
-         !OKSpacingBlip(resolution, median_space, neighbourhood) &&
-         (!OKSpacingBlip(resolution, median_space, neighbourhood - 1) ||
+         (neighbourhood[PN_UPPER] == nullptr ||
+          neighbourhood[PN_LOWER] == nullptr ||
+          !OKSpacingBlip(resolution, median_space, neighbourhood, 0)) &&
+         (neighbourhood[PN_UPPER - 1] == nullptr ||
+          neighbourhood[PN_LOWER - 1] == nullptr ||
+          !OKSpacingBlip(resolution, median_space, neighbourhood, -1) ||
           !neighbourhood[PN_LOWER]->SpacingEqual(median_space, resolution)) &&
-         (!OKSpacingBlip(resolution, median_space, neighbourhood + 1) ||
+         (neighbourhood[PN_UPPER + 1] == nullptr ||
+          neighbourhood[PN_LOWER + 1] == nullptr ||
+          !OKSpacingBlip(resolution, median_space, neighbourhood, 1) ||
           !neighbourhood[PN_UPPER]->SpacingEqual(median_space, resolution)))) {
       // The group has ended. PN_UPPER is the last member.
       // Compute the mean spacing over the group.
@@ -2337,11 +2347,10 @@ void ColPartition::SmoothSpacings(int resolution, int page_height,
 // condition for a spacing blip. See SmoothSpacings for what this means
 // and how it is used.
 bool ColPartition::OKSpacingBlip(int resolution, int median_spacing,
-                                 ColPartition** parts) {
-  if (parts[PN_UPPER] == nullptr || parts[PN_LOWER] == nullptr)
-    return false;
+                                 ColPartition** parts, int offset) {
   // The blip is OK if upper and lower sum to an OK value and at least
   // one of above1 and below1 is equal to the median.
+  parts += offset;
   return parts[PN_UPPER]->SummedSpacingOK(*parts[PN_LOWER],
                                           median_spacing, resolution) &&
          ((parts[PN_ABOVE1] != nullptr &&

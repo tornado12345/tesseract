@@ -31,23 +31,24 @@
 #endif
 
 #include "errcode.h"
-#include "helpers.h"
-#include "serialis.h"
-#include "strngs.h"
+#include <tesseract/helpers.h>
+#include <tesseract/serialis.h>
+#include <tesseract/strngs.h>
+#include <tesseract/version.h>
 #include "tprintf.h"
 #include "params.h"
 
 namespace tesseract {
 
 TessdataManager::TessdataManager() : reader_(nullptr), is_loaded_(false), swap_(false) {
-  SetVersionString(PACKAGE_VERSION);
+  SetVersionString(TESSERACT_VERSION_STR);
 }
 
 TessdataManager::TessdataManager(FileReader reader)
   : reader_(reader),
     is_loaded_(false),
     swap_(false) {
-  SetVersionString(PACKAGE_VERSION);
+  SetVersionString(TESSERACT_VERSION_STR);
 }
 
 // Lazily loads from the the given filename. Won't actually read the file
@@ -150,7 +151,7 @@ void TessdataManager::OverwriteEntry(TessdataType type, const char *data,
 }
 
 // Saves to the given filename.
-bool TessdataManager::SaveFile(const STRING &filename,
+bool TessdataManager::SaveFile(const char* filename,
                                FileWriter writer) const {
   // TODO: This method supports only the proprietary file format.
   ASSERT_HOST(is_loaded_);
@@ -183,17 +184,17 @@ void TessdataManager::Serialize(GenericVector<char> *data) const {
   fp.OpenWrite(data);
   fp.Serialize(&num_entries);
   fp.Serialize(&offset_table[0], countof(offset_table));
-  for (unsigned i = 0; i < TESSDATA_NUM_ENTRIES; ++i) {
-    if (!entries_[i].empty()) {
-      fp.Serialize(&entries_[i][0], entries_[i].size());
+  for (const auto& entry : entries_) {
+    if (!entry.empty()) {
+      fp.Serialize(&entry[0], entry.size());
     }
   }
 }
 
 // Resets to the initial state, keeping the reader.
 void TessdataManager::Clear() {
-  for (unsigned i = 0; i < TESSDATA_NUM_ENTRIES; ++i) {
-    entries_[i].clear();
+  for (auto& entry : entries_) {
+    entry.clear();
   }
   is_loaded_ = false;
 }
@@ -214,7 +215,7 @@ void TessdataManager::Directory() const {
 // Opens the given TFile pointer to the given component type.
 // Returns false in case of failure.
 bool TessdataManager::GetComponent(TessdataType type, TFile *fp) {
-  if (!is_loaded_ && !Init(data_file_name_.string())) return false;
+  if (!is_loaded_ && !Init(data_file_name_.c_str())) return false;
   const TessdataManager *const_this = this;
   return const_this->GetComponent(type, fp);
 }
@@ -245,16 +246,16 @@ bool TessdataManager::CombineDataFiles(
     const char *language_data_path_prefix,
     const char *output_filename) {
   // Load individual tessdata components from files.
-  for (unsigned i = 0; i < TESSDATA_NUM_ENTRIES; ++i) {
+  for (auto filesuffix : kTessdataFileSuffixes) {
     TessdataType type;
-    ASSERT_HOST(TessdataTypeFromFileSuffix(kTessdataFileSuffixes[i], &type));
-    STRING filename = language_data_path_prefix;
-    filename += kTessdataFileSuffixes[i];
-    FILE *fp = fopen(filename.string(), "rb");
+    ASSERT_HOST(TessdataTypeFromFileSuffix(filesuffix, &type));
+    std::string filename = language_data_path_prefix;
+    filename += filesuffix;
+    FILE *fp = fopen(filename.c_str(), "rb");
     if (fp != nullptr) {
       fclose(fp);
-      if (!LoadDataFromFile(filename, &entries_[type])) {
-        tprintf("Load of file %s failed!\n", filename.string());
+      if (!LoadDataFromFile(filename.c_str(), &entries_[type])) {
+        tprintf("Load of file %s failed!\n", filename.c_str());
         return false;
       }
     }

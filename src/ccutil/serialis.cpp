@@ -2,7 +2,6 @@
  * File:        serialis.cpp  (Formerly serialmac.h)
  * Description: Inline routines and macros for serialisation functions
  * Author:      Phil Cheatle
- * Created:     Tue Oct 08 08:33:12 BST 1991
  *
  * (C) Copyright 1990, Hewlett-Packard Ltd.
  ** Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,10 +16,10 @@
  *
  **********************************************************************/
 
-#include "serialis.h"
+#include <tesseract/serialis.h>
 #include <cstdio>
 #include "errcode.h"
-#include "genericvector.h"
+#include <tesseract/genericvector.h>
 
 namespace tesseract {
 
@@ -89,8 +88,8 @@ bool Serialize(FILE* fp, const uint32_t* data, size_t n) {
 }
 
 TFile::TFile()
-    : offset_(0),
-      data_(nullptr),
+    : data_(nullptr),
+      offset_(0),
       data_is_owned_(false),
       is_writing_(false),
       swap_(false) {}
@@ -193,7 +192,7 @@ bool TFile::Skip(size_t count) {
   return true;
 }
 
-bool TFile::Open(const STRING& filename, FileReader reader) {
+bool TFile::Open(const char* filename, FileReader reader) {
   if (!data_is_owned_) {
     data_ = new GenericVector<char>;
     data_is_owned_ = true;
@@ -222,7 +221,7 @@ bool TFile::Open(const char* data, int size) {
 
 bool TFile::Open(FILE* fp, int64_t end_offset) {
   offset_ = 0;
-  long current_pos = ftell(fp);
+  auto current_pos = std::ftell(fp);
   if (current_pos < 0) {
     // ftell failed.
     return false;
@@ -307,7 +306,7 @@ void TFile::OpenWrite(GenericVector<char>* data) {
   data_->truncate(0);
 }
 
-bool TFile::CloseWrite(const STRING& filename, FileWriter writer) {
+bool TFile::CloseWrite(const char* filename, FileWriter writer) {
   ASSERT_HOST(is_writing_);
   if (writer == nullptr)
     return SaveDataToFile(*data_, filename);

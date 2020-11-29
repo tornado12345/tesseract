@@ -25,20 +25,24 @@
 #include <iostream>
 
 #include "allheaders.h"
-#include "baseapi.h"
-#include "basedir.h"
+#include <tesseract/baseapi.h>
 #include "dict.h"
 #if defined(USE_OPENCL)
 #include "openclwrapper.h"      // for OpenclDevice
 #endif
-#include "osdetect.h"
-#include "renderer.h"
+#include <tesseract/renderer.h>
 #include "simddetect.h"
-#include "strngs.h"
 #include "tprintf.h"            // for tprintf
 
 #ifdef _OPENMP
 #include <omp.h>
+#endif
+
+#if defined(HAVE_LIBARCHIVE)
+#include <archive.h>
+#endif
+#if defined(HAVE_LIBCURL)
+#include <curl/curl.h>
 #endif
 
 #if defined(_WIN32)
@@ -68,6 +72,22 @@ static void Win32WarningHandler(const char* module, const char* fmt,
 }
 
 #endif /* HAVE_TIFFIO_H */
+
+class AutoWin32ConsoleOutputCP {
+ public:
+  explicit AutoWin32ConsoleOutputCP(UINT codeCP) {
+    oldCP_ = GetConsoleOutputCP();    
+    SetConsoleOutputCP(codeCP);
+  }
+  ~AutoWin32ConsoleOutputCP() {    
+    SetConsoleOutputCP(oldCP_);    
+  }
+ private:  
+  UINT oldCP_;
+};
+
+static AutoWin32ConsoleOutputCP autoWin32ConsoleOutputCP(CP_UTF8);
+
 #endif   // _WIN32
 
 static void PrintVersionInfo() {
@@ -115,15 +135,29 @@ static void PrintVersionInfo() {
     }
   }
 #endif
+#if defined(HAVE_NEON)
+  if (tesseract::SIMDDetect::IsNEONAvailable()) printf(" Found NEON\n");
+#else
   if (tesseract::SIMDDetect::IsAVX512BWAvailable()) printf(" Found AVX512BW\n");
   if (tesseract::SIMDDetect::IsAVX512FAvailable()) printf(" Found AVX512F\n");
   if (tesseract::SIMDDetect::IsAVX2Available()) printf(" Found AVX2\n");
   if (tesseract::SIMDDetect::IsAVXAvailable()) printf(" Found AVX\n");
+  if (tesseract::SIMDDetect::IsFMAAvailable()) printf(" Found FMA\n");
   if (tesseract::SIMDDetect::IsSSEAvailable()) printf(" Found SSE\n");
+#endif
 #ifdef _OPENMP
   printf(" Found OpenMP %d\n", _OPENMP);
 #endif
-
+#if defined(HAVE_LIBARCHIVE)
+#  if ARCHIVE_VERSION_NUMBER >= 3002000
+  printf(" Found %s\n", archive_version_details());
+#  else
+  printf(" Found %s\n", archive_version_string());
+#  endif  // ARCHIVE_VERSION_NUMBER
+#endif    // HAVE_LIBARCHIVE
+#if defined(HAVE_LIBCURL)
+  printf(" Found %s\n", curl_version());
+#endif
 }
 
 static void PrintHelpForPSM() {
@@ -268,7 +302,7 @@ static void PrintLangsList(tesseract::TessBaseAPI* api) {
   printf("List of available languages (%d):\n", languages.size());
   for (int index = 0; index < languages.size(); ++index) {
     STRING& string = languages[index];
-    printf("%s\n", string.string());
+    printf("%s\n", string.c_str());
   }
   api->End();
 }
@@ -418,7 +452,7 @@ static void PreloadRenderers(
     if (b) {
       bool font_info;
       api->GetBoolVariable("hocr_font_info", &font_info);
-      tesseract::TessHOcrRenderer* renderer =
+      auto* renderer =
           new tesseract::TessHOcrRenderer(outputbase, font_info);
       if (renderer->happy()) {
         renderers->push_back(renderer);
@@ -432,7 +466,7 @@ static void PreloadRenderers(
 
     api->GetBoolVariable("tessedit_create_alto", &b);
     if (b) {
-      tesseract::TessAltoRenderer* renderer =
+      auto* renderer =
               new tesseract::TessAltoRenderer(outputbase);
       if (renderer->happy()) {
         renderers->push_back(renderer);
@@ -448,7 +482,7 @@ static void PreloadRenderers(
     if (b) {
       bool font_info;
       api->GetBoolVariable("hocr_font_info", &font_info);
-      tesseract::TessTsvRenderer* renderer =
+      auto* renderer =
           new tesseract::TessTsvRenderer(outputbase, font_info);
       if (renderer->happy()) {
         renderers->push_back(renderer);
@@ -468,7 +502,7 @@ static void PreloadRenderers(
       #endif  // WIN32
       bool textonly;
       api->GetBoolVariable("textonly_pdf", &textonly);
-      tesseract::TessPDFRenderer* renderer =
+      auto* renderer =
         new tesseract::TessPDFRenderer(outputbase, api->GetDatapath(),
                                        textonly);
       if (renderer->happy()) {
@@ -484,7 +518,7 @@ static void PreloadRenderers(
     api->GetBoolVariable("tessedit_write_unlv", &b);
     if (b) {
       api->SetVariable("unlv_tilde_crunching", "true");
-      tesseract::TessUnlvRenderer* renderer =
+      auto* renderer =
         new tesseract::TessUnlvRenderer(outputbase);
       if (renderer->happy()) {
         renderers->push_back(renderer);
@@ -498,7 +532,7 @@ static void PreloadRenderers(
 
     api->GetBoolVariable("tessedit_create_lstmbox", &b);
     if (b) {
-      tesseract::TessLSTMBoxRenderer* renderer =
+      auto* renderer =
         new tesseract::TessLSTMBoxRenderer(outputbase);
       if (renderer->happy()) {
         renderers->push_back(renderer);
@@ -512,7 +546,7 @@ static void PreloadRenderers(
 
     api->GetBoolVariable("tessedit_create_boxfile", &b);
     if (b) {
-      tesseract::TessBoxTextRenderer* renderer =
+      auto* renderer =
         new tesseract::TessBoxTextRenderer(outputbase);
       if (renderer->happy()) {
         renderers->push_back(renderer);
@@ -526,7 +560,7 @@ static void PreloadRenderers(
 
     api->GetBoolVariable("tessedit_create_wordstrbox", &b);
     if (b) {
-      tesseract::TessWordStrBoxRenderer* renderer =
+      auto* renderer =
         new tesseract::TessWordStrBoxRenderer(outputbase);
       if (renderer->happy()) {
         renderers->push_back(renderer);
@@ -540,7 +574,10 @@ static void PreloadRenderers(
 
     api->GetBoolVariable("tessedit_create_txt", &b);
     if (b || (!error && renderers->empty())) {
-      tesseract::TessTextRenderer* renderer =
+      // Create text output if no other output was requested
+      // even if text output was not explicitly requested unless
+      // there was an error.
+      auto* renderer =
         new tesseract::TessTextRenderer(outputbase);
       if (renderer->happy()) {
         renderers->push_back(renderer);
@@ -691,13 +728,15 @@ int main(int argc, char** argv) {
     return ret_val;
   }
 
-  // set in_training_mode to true when using one of these configs:
-  // ambigs.train, box.train, box.train.stderr, linebox, rebox
+  // Set in_training_mode to true when using one of these configs:
+  // ambigs.train, box.train, box.train.stderr, linebox, rebox, lstm.train.
+  // In this mode no other OCR result files are written.
   bool b = false;
   bool in_training_mode =
       (api.GetBoolVariable("tessedit_ambigs_training", &b) && b) ||
       (api.GetBoolVariable("tessedit_resegment_from_boxes", &b) && b) ||
-      (api.GetBoolVariable("tessedit_make_boxes_from_boxes", &b) && b);
+      (api.GetBoolVariable("tessedit_make_boxes_from_boxes", &b) && b) ||
+      (api.GetBoolVariable("tessedit_train_line_recognizer", &b) && b);
 
 #ifdef DISABLED_LEGACY_ENGINE
   auto cur_psm = api.GetPageSegMode();
@@ -725,7 +764,7 @@ int main(int argc, char** argv) {
 
   if (in_training_mode) {
     renderers.push_back(nullptr);
-  } else {
+  } else if (outputbase != nullptr) {
     PreloadRenderers(&api, &renderers, pagesegmode, outputbase);
   }
 

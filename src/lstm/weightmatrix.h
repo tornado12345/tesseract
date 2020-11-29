@@ -19,7 +19,7 @@
 #define TESSERACT_LSTM_WEIGHTMATRIX_H_
 
 #include <memory>
-#include "genericvector.h"
+#include <vector>
 #include "intsimdmatrix.h"
 #include "matrix.h"
 #include "tprintf.h"
@@ -35,7 +35,7 @@ class TransposedArray : public GENERIC_2D_ARRAY<double> {
   void Transpose(const GENERIC_2D_ARRAY<double>& input);
   // Writes a vector of data representing a timestep (gradients or sources).
   // The data is assumed to be of size1 in size (the strided dimension).
-  virtual ~TransposedArray();
+  ~TransposedArray() override;
   void WriteStrided(int t, const float* data) {
     int size1 = dim1();
     for (int i = 0; i < size1; ++i) put(i, t, data[i]);
@@ -168,7 +168,7 @@ class WeightMatrix {
   bool use_adam_;
   // If we are using wi_, then scales_ is a factor to restore the row product
   // with a vector to the correct range.
-  GenericVector<double> scales_;
+  std::vector<double> scales_;
   // Weight deltas. dw_ is the new delta, and updates_ the momentum-decaying
   // amount to be added to wf_/wi_.
   GENERIC_2D_ARRAY<double> dw_;

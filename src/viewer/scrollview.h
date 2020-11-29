@@ -2,7 +2,6 @@
 // File:        scrollview.h
 // Description: ScrollView
 // Author:      Joern Wanke
-// Created:     Thu Nov 29 2007
 //
 // (C) Copyright 2007, Google Inc.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -35,10 +34,10 @@
 #ifndef OCR_SCROLLVIEW_H__
 
 #include <cstdio>
+#include <mutex>
 
 class ScrollView;
 class SVNetwork;
-class SVMutex;
 class SVSemaphore;
 struct SVPolyLineBuffer;
 
@@ -61,21 +60,17 @@ enum SVEventType {
 struct SVEvent {
   ~SVEvent() { delete [] parameter; }
   SVEvent* copy();
-  SVEventType type;    // What kind of event.
-  ScrollView* window;  // Window event relates to.
-  int x;               // Coords of click or selection.
-  int y;
-  int x_size;          // Size of selection.
-  int y_size;
-  int command_id;      // The ID of the possibly associated event (e.g. MENU)
-  char* parameter;     // Any string that might have been passed as argument.
-  int counter;         // Used to detect which kind of event to process next.
+  SVEventType type = SVET_DESTROY; // What kind of event.
+  ScrollView* window = nullptr; // Window event relates to.
+  char* parameter = nullptr; // Any string that might have been passed as argument.
+  int x = 0;           // Coords of click or selection.
+  int y = 0;
+  int x_size = 0;      // Size of selection.
+  int y_size = 0;
+  int command_id = 0;  // The ID of the possibly associated event (e.g. MENU)
+  int counter = 0;     // Used to detect which kind of event to process next.
 
-  SVEvent() {
-    window = nullptr;
-    parameter = nullptr;
-  }
-
+  SVEvent() = default;
   SVEvent(const SVEvent&);
   SVEvent& operator=(const SVEvent&);
 };
@@ -92,7 +87,7 @@ class SVEventHandler {
     virtual void Notify(const SVEvent* sve) { (void)sve; }
 };
 
-// The ScrollView class provides the expernal API to the scrollviewer process.
+// The ScrollView class provides the external API to the scrollviewer process.
 // The scrollviewer process manages windows and displays images, graphics and
 // text while allowing the user to zoom and scroll the windows arbitrarily.
 // Each ScrollView class instance represents one window, and stuff is drawn in
@@ -346,6 +341,8 @@ class ScrollView {
 // have to be flipped (by ySize).
   int TranslateYCoordinate(int y);
 
+  char Wait();
+
  private:
 // Transfers a binary Image.
   void TransferBinaryImage(struct Pix* image);
@@ -362,8 +359,8 @@ class ScrollView {
 // Send the current buffered polygon (if any) and clear it.
   void SendPolygon();
 
-// Start the message receiving thread.
-  static void* MessageReceiver(void* a);
+  // Start the message receiving thread.
+  static void MessageReceiver();
 
 // Place an event into the event_table (synchronized).
   void SetEvent(SVEvent* svevent);
@@ -374,8 +371,9 @@ class ScrollView {
 // Returns the unique, shared network stream.
   static SVNetwork* GetStream() { return stream_; }
 
-// Starts a new event handler. Called whenever a new window is created.
-  static void* StartEventHandler(void* sv);
+  // Starts a new event handler.
+  // Called asynchronously whenever a new window is created.
+  void StartEventHandler();
 
 // Escapes the ' character with a \, so it can be processed by LUA.
   char* AddEscapeChars(const char* input);
@@ -407,11 +405,11 @@ class ScrollView {
   SVEvent* event_table_[SVET_COUNT];
 
   // Mutex to access the event_table_ in a synchronized fashion.
-  SVMutex* mutex_;
+  std::mutex* mutex_;
 
   // Semaphore to the thread belonging to this window.
   SVSemaphore* semaphore_;
-#endif  // GRAPHICS_DISABLED
+#endif // !GRAPHICS_DISABLED
 };
 
 #endif  // OCR_SCROLLVIEW_H__

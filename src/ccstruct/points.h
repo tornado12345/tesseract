@@ -23,7 +23,7 @@
 #include <cstdio>
 #include "elst.h"
 #include "errcode.h"            // for ASSERT_HOST
-#include "platform.h"           // for DLLSYM
+#include <tesseract/platform.h>           // for DLLSYM
 
 class FCOORD;
 
@@ -71,7 +71,7 @@ class ICOORD
 
     ///find sq length
     float sqlength() const {
-      return xcoord * xcoord + ycoord * ycoord;
+      return (float)(xcoord * xcoord + ycoord * ycoord);
     }
 
     ///find length
@@ -95,7 +95,7 @@ class ICOORD
 
     ///find angle
     float angle() const {
-      return std::atan2(ycoord, xcoord);
+      return (float)std::atan2(ycoord, xcoord);
     }
 
     ///test equality
@@ -177,7 +177,7 @@ class DLLSYM ICOORDELT:public ELIST_LINK, public ICOORD
     }
 
     static ICOORDELT* deep_copy(const ICOORDELT* src) {
-      ICOORDELT* elt = new ICOORDELT;
+      auto* elt = new ICOORDELT;
       *elt = *src;
       return elt;
     }
@@ -535,7 +535,7 @@ int16_t scale) {
 
 inline void ICOORD::rotate(  //rotate by vector
                            const FCOORD& vec) {
-  int16_t tmp = static_cast<int16_t>(std::floor(xcoord * vec.x() -
+  auto tmp = static_cast<int16_t>(std::floor(xcoord * vec.x() -
                                                 ycoord * vec.y() + 0.5f));
   ycoord = static_cast<int16_t>(std::floor(ycoord * vec.x() +
                                            xcoord * vec.y() + 0.5f));

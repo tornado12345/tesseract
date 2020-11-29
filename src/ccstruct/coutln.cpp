@@ -2,7 +2,6 @@
  * File:        coutln.cpp  (Formerly coutline.c)
  * Description: Code for the C_OUTLINE class.
  * Author:      Ray Smith
- * Created:     Mon Oct 07 16:01:57 BST 1991
  *
  * (C) Copyright 1991, Hewlett-Packard Ltd.
  ** Licensed under the Apache License, Version 2.0 (the "License");
@@ -28,7 +27,7 @@
 #include "crakedge.h"     // for CRACKEDGE
 #include "environ.h"      // for l_uint32
 #include "errcode.h"      // for ASSERT_HOST
-#include "helpers.h"      // for ClipToRange, IntCastRounded, Modulo
+#include <tesseract/helpers.h>      // for ClipToRange, IntCastRounded, Modulo
 #include "normalis.h"     // for DENORM
 #include "pix.h"          // for Pix (ptr only), PIX_DST, PIX_NOT
 
@@ -64,7 +63,7 @@ C_OUTLINE::C_OUTLINE(CRACKEDGE* startpt, ICOORD bot_left, ICOORD top_right,
     return;
   }
                                  //get memory
-  steps = (uint8_t *)calloc(step_mem(), 1);
+  steps = static_cast<uint8_t *>(calloc(step_mem(), 1));
   edgept = startpt;
 
   for (stepindex = 0; stepindex < length; stepindex++) {
@@ -160,7 +159,7 @@ C_OUTLINE::C_OUTLINE(C_OUTLINE* srcline, FCOORD rotation) : offsets(nullptr) {
     return;
   }
                                  //get memory
-  steps = (uint8_t *)calloc(step_mem(), 1);
+  steps = static_cast<uint8_t *>(calloc(step_mem(), 1));
 
   for (int iteration = 0; iteration < 2; ++iteration) {
     DIR128 round1 = iteration == 0 ? 32 : 0;
@@ -216,13 +215,15 @@ C_OUTLINE::C_OUTLINE(C_OUTLINE* srcline, FCOORD rotation) : offsets(nullptr) {
       }
     }
     ASSERT_HOST (destpos.x () == start.x () && destpos.y () == start.y ());
-    dirdiff = step_dir (destindex - 1) - step_dir (0);
-    while ((dirdiff == 64 || dirdiff == -64) && destindex > 1) {
+    while (destindex > 1) {
+      dirdiff = step_dir(destindex - 1) - step_dir(0);
+      if (dirdiff != 64 && dirdiff != -64) {
+        break;
+      }
       start += step (0);
       destindex -= 2;
       for (int i = 0; i < destindex; ++i)
         set_step(i, step_dir(i + 1));
-      dirdiff = step_dir (destindex - 1) - step_dir (0);
     }
     if (destindex >= 4)
       break;
@@ -460,7 +461,7 @@ int32_t C_OUTLINE::count_transitions(int32_t threshold) {
 /**
  * @name C_OUTLINE::operator<
  *
- * @return TRUE if the left operand is inside the right one.
+ * @return true if the left operand is inside the right one.
  * @param other other outline
  */
 
@@ -1012,18 +1013,21 @@ C_OUTLINE& C_OUTLINE::operator=(const C_OUTLINE& source) {
   box = source.box;
   start = source.start;
   free(steps);
-  stepcount = source.stepcount;
-  steps = (uint8_t *)malloc(step_mem());
-  memmove (steps, source.steps, step_mem());
-  if (!children.empty ())
-    children.clear ();
+  steps = nullptr;
+  if (!children.empty()) {
+    children.clear();
+  }
   children.deep_copy(&source.children, &deep_copy);
   delete [] offsets;
-  if (source.offsets != nullptr) {
-    offsets = new EdgeOffset[stepcount];
-    memcpy(offsets, source.offsets, stepcount * sizeof(*offsets));
-  } else {
-    offsets = nullptr;
+  offsets = nullptr;
+  stepcount = source.stepcount;
+  if (stepcount > 0) {
+    steps = static_cast<uint8_t *>(malloc(step_mem()));
+    memmove(steps, source.steps, step_mem());
+    if (source.offsets != nullptr) {
+      offsets = new EdgeOffset[stepcount];
+      memcpy(offsets, source.offsets, stepcount * sizeof(*offsets));
+    }
   }
   return *this;
 }

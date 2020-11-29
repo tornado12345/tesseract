@@ -2,7 +2,6 @@
  * File:        tordmain.cpp  (Formerly textordp.c)
  * Description: C++ top level textord code.
  * Author:      Ray Smith
- * Created:     Tue Jul 28 17:12:33 BST 1992
  *
  * (C) Copyright 1992, Hewlett-Packard Ltd.
  ** Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,6 +16,7 @@
  *
  **********************************************************************/
 
+#define _USE_MATH_DEFINES       // for M_PI
 #ifdef HAVE_CONFIG_H
 #include "config_auto.h"
 #endif
@@ -33,8 +33,8 @@
 #include "coutln.h"             // for C_OUTLINE_IT, C_OUTLINE_LIST, C_OUTLINE
 #include "drawtord.h"           // for plot_box_list, to_win, create_to_win
 #include "edgblob.h"            // for extract_edges
-#include "errcode.h"            // for set_global_loc_code, ASSERT_HOST, LOC...
-#include "genericvector.h"      // for PointerVector, GenericVector
+#include "errcode.h"            // for ASSERT_HOST, ...
+#include <tesseract/genericvector.h>      // for PointerVector, GenericVector
 #include "makerow.h"            // for textord_test_x, textord_test_y, texto...
 #include "morph.h"              // for L_BOUNDARY_BG
 #include "ocrblock.h"           // for BLOCK_IT, BLOCK, BLOCK_LIST (ptr only)
@@ -135,7 +135,7 @@ void SetBlobStrokeWidth(Pix* pix, BLOBNBOX* blob) {
   }
   pixDestroy(&dist_pix);
   // Store the horizontal and vertical width in the blob, keeping both
-  // widths if there is enough information, otherwse only the one with
+  // widths if there is enough information, otherwise only the one with
   // the most samples.
   // If there are insufficient samples, store zero, rather than using
   // 2*area/perimeter, as the numbers that gives do not match the numbers
@@ -225,8 +225,6 @@ void Textord::find_components(Pix* pix, BLOCK_LIST *blocks,
     return;  // Can't handle it.
   }
 
-  set_global_loc_code(LOC_EDGE_PROG);
-
   BLOCK_IT block_it(blocks);    // iterator
   for (block_it.mark_cycle_pt(); !block_it.cycled_list();
        block_it.forward()) {
@@ -256,7 +254,7 @@ void Textord::filter_blobs(ICOORD page_tr,         // top right
   #ifndef GRAPHICS_DISABLED
   if (to_win != nullptr)
     to_win->Clear();
-  #endif  // GRAPHICS_DISABLED
+  #endif // !GRAPHICS_DISABLED
 
   for (block_it.mark_cycle_pt(); !block_it.cycled_list();
        block_it.forward()) {
@@ -288,7 +286,7 @@ void Textord::filter_blobs(ICOORD page_tr,         // top right
       plot_box_list(to_win, &block->large_blobs, ScrollView::WHITE);
       plot_box_list(to_win, &block->blobs, ScrollView::WHITE);
     }
-    #endif  // GRAPHICS_DISABLED
+    #endif // !GRAPHICS_DISABLED
   }
 }
 
@@ -558,7 +556,7 @@ bool Textord::clean_noise_from_row(          //remove empties
     tprintf ("Row ending at (%d,%g):",
       blob_box.right (), row->base_line (blob_box.right ()));
     tprintf (" R=%g, dc=%d, nc=%d, %s\n",
-      norm_count > 0 ? (float) dot_count / norm_count : 9999,
+      norm_count > 0 ? static_cast<float>(dot_count) / norm_count : 9999,
       dot_count, norm_count,
       dot_count > norm_count * textord_noise_normratio
       && dot_count > 2 ? "REJECTED" : "ACCEPTED");
@@ -791,7 +789,7 @@ void Textord::TransferDiacriticsToBlockGroups(BLOBNBOX_LIST* diacritic_blobs,
         WERD_IT w_it(row->word_list());
         for (w_it.mark_cycle_pt(); !w_it.cycled_list(); w_it.forward()) {
           WERD* word = w_it.data();
-          WordWithBox* box_word = new WordWithBox(word);
+          auto* box_word = new WordWithBox(word);
           word_grid.InsertBBox(true, true, box_word);
           // Save the pointer where it will be auto-deleted.
           word_ptrs.push_back(box_word);

@@ -26,9 +26,9 @@ namespace tesseract {
 
 class Input : public Network {
  public:
-  Input(const STRING& name, int ni, int no);
-  Input(const STRING& name, const StaticShape& shape);
-  virtual ~Input() = default;
+  Input(const std::string& name, int ni, int no);
+  Input(const std::string& name, const StaticShape& shape);
+  ~Input() override = default;
 
   STRING spec() const override {
     STRING spec;

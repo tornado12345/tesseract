@@ -2,7 +2,6 @@
 // File:        equationdetect.cpp
 // Description: Helper classes to detect equations.
 // Author:      Zongyi (Joe) Liu (joeliu@google.com)
-// Created:     Fri Aug 31 11:13:01 PST 2011
 //
 // (C) Copyright 2011, Google Inc.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,10 +15,6 @@
 // limitations under the License.
 //
 ///////////////////////////////////////////////////////////////////////
-
-#ifdef __MINGW32__
-#include <limits.h>
-#endif
 
 #include <algorithm>
 #include <cfloat>
@@ -38,15 +33,15 @@
 #include "colpartition.h"
 #include "colpartitiongrid.h"
 #include "colpartitionset.h"
-#include "helpers.h"
+#include <tesseract/helpers.h>
 #include "ratngs.h"
 #include "tesseractclass.h"
 
 // Config variables.
-BOOL_VAR(equationdetect_save_bi_image, false, "Save input bi image");
-BOOL_VAR(equationdetect_save_spt_image, false, "Save special character image");
-BOOL_VAR(equationdetect_save_seed_image, false, "Save the seed image");
-BOOL_VAR(equationdetect_save_merged_image, false, "Save the merged image");
+static BOOL_VAR(equationdetect_save_bi_image, false, "Save input bi image");
+static BOOL_VAR(equationdetect_save_spt_image, false, "Save special character image");
+static BOOL_VAR(equationdetect_save_seed_image, false, "Save the seed image");
+static BOOL_VAR(equationdetect_save_merged_image, false, "Save the merged image");
 
 namespace tesseract {
 
@@ -238,7 +233,7 @@ BlobSpecialTextType EquationDetect::EstimateTypeForUnichar(
       int i = 0;
       while (kCharsToEx[i] != "") {
         ids_to_exclude.push_back(
-            unicharset.unichar_to_id(kCharsToEx[i++].string()));
+            unicharset.unichar_to_id(kCharsToEx[i++].c_str()));
       }
       ids_to_exclude.sort();
     }
@@ -375,7 +370,7 @@ int EquationDetect::FindEquationParts(
 
   if (equationdetect_save_bi_image) {
     GetOutputTiffName("_bi", &outfile);
-    pixWrite(outfile.string(), lang_tesseract_->pix_binary(), IFF_TIFF_G4);
+    pixWrite(outfile.c_str(), lang_tesseract_->pix_binary(), IFF_TIFF_G4);
   }
 
   // Pass 0: Compute special text type for blobs.
@@ -1102,7 +1097,7 @@ bool EquationDetect::ExpandSeed(ColPartition* seed) {
 
   // Merge all partitions in parts_to_merge with seed. We first remove seed
   // from part_grid_ as its bounding box is going to expand. Then we add it
-  // back after it aborbs all parts_to_merge parititions.
+  // back after it absorbs all parts_to_merge partitions.
   part_grid_->RemoveBBox(seed);
   for (int i = 0; i < parts_to_merge.size(); ++i) {
     ColPartition* part = parts_to_merge[i];
@@ -1475,7 +1470,7 @@ void EquationDetect::PaintSpecialTexts(const STRING& outfile) const {
     }
   }
 
-  pixWrite(outfile.string(), pix, IFF_TIFF_LZW);
+  pixWrite(outfile.c_str(), pix, IFF_TIFF_LZW);
   pixDestroy(&pix);
 }
 
@@ -1498,7 +1493,7 @@ void EquationDetect::PaintColParts(const STRING& outfile) const {
     boxDestroy(&box);
   }
 
-  pixWrite(outfile.string(), pix, IFF_TIFF_LZW);
+  pixWrite(outfile.c_str(), pix, IFF_TIFF_LZW);
   pixDestroy(&pix);
 }
 
@@ -1511,7 +1506,7 @@ void EquationDetect::PrintSpecialBlobsDensity(const ColPartition* part) const {
   box.print();
   tprintf("blobs count = %d, density = ", part->boxes_count());
   for (int i = 0; i < BSTT_COUNT; ++i) {
-    BlobSpecialTextType type = static_cast<BlobSpecialTextType>(i);
+    auto type = static_cast<BlobSpecialTextType>(i);
     tprintf("%d:%f ", i, part->SpecialBlobsDensity(type));
   }
   tprintf("\n");
